@@ -1,26 +1,11 @@
 package io.gingersnap;
 
-import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
+import javax.inject.Inject;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import org.apache.commons.io.monitor.FileAlterationListener;
-import org.apache.commons.io.monitor.FileAlterationListenerAdaptor;
-import org.apache.commons.io.monitor.FileAlterationMonitor;
-import org.apache.commons.io.monitor.FileAlterationObserver;
-
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.Watcher;
+import io.fabric8.kubernetes.client.WatcherException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -29,82 +14,38 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "cache-manager", mixinStandardHelpOptions = true)
 public class CacheManager implements Runnable {
-   @Option(names = {"-l", "--lazy-rules"}, description = "The path to a directory containing all LazyCacheRule definitions", required = true)
-   File lazyRulesPath;
+   @Option(names = {"-l", "--lazy-config-map"}, description = "The name of the ConfigMap containing LazyCacheRule definitions", required = true)
+   String lazyConfigMap;
 
-   @Option(names = {"-e", "--eager-rules"}, description = "The path to a directory containing all EagerCacheRule definitions", required = true)
-   File eagerRulesPath;
+   @Inject
+   KubernetesClient client;
 
    @Override
    public void run() {
       try {
-         start();
+         watch();
       } catch (Exception e) {
          throw new RuntimeException(e);
       }
    }
-   private void start() throws Exception {
-      watching(lazyRulesPath);
-      watching(eagerRulesPath);
-      // We can't use the Java WatchService api as the inotify implementation is not able to correctly
-      // handle drives that are bind mounted in a container, which is the case for ConfigMaps
-      // https://blog.arkey.fr/2019/09/13/watchservice-and-bind-mount/
-      FileAlterationMonitor monitor = new FileAlterationMonitor(500);
-      FileAlterationObserver lazyRulesObserver = new FileAlterationObserver(lazyRulesPath);
-      FileAlterationObserver eagerRulesObserver = new FileAlterationObserver(eagerRulesPath);
-      lazyRulesObserver.addListener(new RuleListener("LazyCacheRule"));
-      eagerRulesObserver.addListener(new RuleListener("EagerCacheRule"));
-      monitor.addObserver(lazyRulesObserver);
-      monitor.addObserver(eagerRulesObserver);
-      monitor.start();
+
+   private void watch() throws InterruptedException {
+      System.out.printf("Watching for %s events\n", lazyConfigMap);
+
+      client.configMaps().withName(lazyConfigMap).watch(new Watcher<>() {
+         @Override
+         public void eventReceived(Action action, ConfigMap cm) {
+            System.out.printf("ConfigMap %s\n", action);
+            if (cm.getData() != null) {
+               cm.getData().forEach((k, v) -> System.out.printf("%s:\n%s", k, v));
+            }
+         }
+
+         @Override
+         public void onClose(WatcherException e) {
+            e.printStackTrace();
+         }
+      });
       Thread.currentThread().join();
-   }
-
-   private void watching(File path) {
-      if (path != null) {
-         System.out.printf("Watching '%s'\n", path);
-      }
-   }
-
-   static class RuleListener extends FileAlterationListenerAdaptor {
-
-      String ruleType;
-
-      RuleListener(String ruleType) {
-         this.ruleType = ruleType;
-      }
-
-      @Override
-      public void onFileCreate(File file) {
-         try {
-            System.out.printf("%s Created:\n%s", ruleType, Files.readString(file.toPath()));
-         } catch (IOException e) {
-            throw new RuntimeException(e);
-         }
-      }
-
-      @Override
-      public void onFileDelete(File file) {
-         System.out.printf("Rule '%s' deleted\n", file);
-      }
-
-      @Override
-      public void onFileChange(File file) {
-         try {
-            System.out.printf("%s Updated:\n%s", ruleType, Files.readString(file.toPath()));
-         } catch (IOException e) {
-            throw new RuntimeException(e);
-         }
-      }
-
-      @Override
-      public void onDirectoryCreate(final File directory) {
-         System.out.printf("Directory '%s' created\n", directory);
-      }
-
-      @Override
-      public void onDirectoryDelete(final File directory) {
-         System.out.printf("Directory '%s' removed\n", directory);
-      }
    }
 }
