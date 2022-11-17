@@ -11,9 +11,6 @@ import javax.ws.rs.Produces;
 import org.infinispan.Cache;
 import org.infinispan.manager.EmbeddedCacheManager;
 
-/**
- * @author Ryan Emerson
- */
 @Path("/rules")
 public class RuleResource {
 
