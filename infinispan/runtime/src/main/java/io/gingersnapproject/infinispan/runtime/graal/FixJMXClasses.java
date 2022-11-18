@@ -1,15 +1,10 @@
-package io.gingersnap.infinispan.runtime.graal;
+package io.gingersnapproject.infinispan.runtime.graal;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import org.infinispan.commons.configuration.io.ConfigurationReader;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.GlobalJmxStatisticsConfiguration;
-import org.infinispan.configuration.parsing.CacheParser;
-import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
-import org.infinispan.configuration.parsing.Element;
-import org.infinispan.configuration.parsing.Parser;
 import org.infinispan.factories.GlobalComponentRegistry;
 
 import com.oracle.svm.core.annotate.Substitute;

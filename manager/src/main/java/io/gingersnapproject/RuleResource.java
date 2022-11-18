@@ -1,4 +1,4 @@
-package io.gingersnap;
+package io.gingersnapproject;
 
 import java.util.Collection;
 import java.util.stream.Collectors;

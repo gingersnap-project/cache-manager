@@ -1,4 +1,4 @@
-package io.gingersnap.infinispan.runtime.graal;
+package io.gingersnapproject.infinispan.runtime.graal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +10,6 @@ import org.infinispan.protostream.FileDescriptorSource;
 import org.infinispan.protostream.SerializationContext;
 import org.infinispan.protostream.SerializationContextInitializer;
 
-import com.oracle.svm.core.annotate.Alias;
-import com.oracle.svm.core.annotate.Delete;
 import com.oracle.svm.core.annotate.RecomputeFieldValue;
 import com.oracle.svm.core.annotate.Substitute;
 import com.oracle.svm.core.annotate.TargetClass;

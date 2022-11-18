@@ -1,4 +1,4 @@
-package io.gingersnap.k8s;
+package io.gingersnapproject.k8s;
 
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Instance;
@@ -13,7 +13,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
-import io.gingersnap.k8s.configuration.KubernetesConfiguration;
+import io.gingersnapproject.k8s.configuration.KubernetesConfiguration;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 

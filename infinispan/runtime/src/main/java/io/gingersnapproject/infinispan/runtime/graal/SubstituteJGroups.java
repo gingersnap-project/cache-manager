@@ -1,4 +1,4 @@
-package io.gingersnap.infinispan.runtime.graal;
+package io.gingersnapproject.infinispan.runtime.graal;
 
 import org.infinispan.commons.configuration.io.ConfigurationReader;
 import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;

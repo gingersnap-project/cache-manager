@@ -1,4 +1,4 @@
-package io.gingersnap.infinispan.runtime;
+package io.gingersnapproject.infinispan.runtime;
 
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
