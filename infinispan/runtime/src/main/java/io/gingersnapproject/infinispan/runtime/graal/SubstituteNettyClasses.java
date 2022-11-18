@@ -1,4 +1,4 @@
-package io.gingersnap.infinispan.runtime.graal;
+package io.gingersnapproject.infinispan.runtime.graal;
 
 import java.util.concurrent.ThreadFactory;
 

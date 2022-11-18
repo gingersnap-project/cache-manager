@@ -1,4 +1,4 @@
-package io.gingersnap.k8s.configuration;
+package io.gingersnapproject.k8s.configuration;
 
 import java.util.Optional;
 

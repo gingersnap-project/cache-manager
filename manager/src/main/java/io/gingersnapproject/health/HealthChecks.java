@@ -1,4 +1,4 @@
-package io.gingersnap.health;
+package io.gingersnapproject.health;
 
 import javax.inject.Singleton;
 
@@ -8,7 +8,7 @@ import org.eclipse.microprofile.health.Liveness;
 import org.eclipse.microprofile.health.Readiness;
 import org.eclipse.microprofile.health.Startup;
 
-import io.gingersnap.HotRodServer;
+import io.gingersnapproject.HotRodServer;
 import io.quarkus.arc.Arc;
 
 public class HealthChecks {

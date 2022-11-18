@@ -1,4 +1,4 @@
-package io.gingersnap.infinispan.runtime.graal;
+package io.gingersnapproject.infinispan.runtime.graal;
 
 import org.infinispan.commands.RemoteCommandsFactory;
 import org.infinispan.factories.GlobalComponentRegistry;

@@ -1,7 +1,6 @@
-package io.gingersnap.infinispan.deployment;
+package io.gingersnapproject.infinispan.deployment;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
@@ -12,7 +11,6 @@ import org.infinispan.distribution.ch.impl.HashFunctionPartitioner;
 import org.infinispan.factories.impl.ModuleMetadataBuilder;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
-import org.infinispan.notifications.cachelistener.annotation.CacheEntryExpired;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryRemoved;
 import org.infinispan.server.hotrod.HotRodServer;
@@ -21,7 +19,7 @@ import org.jboss.jandex.AnnotationTarget;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 
-import io.gingersnap.infinispan.runtime.EmbeddedCacheManagerProducer;
+import io.gingersnapproject.infinispan.runtime.EmbeddedCacheManagerProducer;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
