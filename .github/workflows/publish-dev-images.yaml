@@ -23,6 +23,6 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
-          file: src/main/docker/Dockerfile.native-micro-builder
+          file: manager/src/main/docker/Dockerfile.native-micro-builder
           push: true
           tags: quay.io/gingersnap/cache-manager:latest
