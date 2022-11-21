@@ -38,6 +38,21 @@ public class HotRodServer {
       }
    }
 
+   public boolean isLive() {
+      // TODO make more useful
+      return server.getTransport().isRunning();
+   }
+
+   public boolean isReady() {
+      // TODO make more useful
+      return server.getTransport().isRunning();
+   }
+
+   public boolean hasStarted() {
+      // TODO make more useful
+      return server.getTransport().isRunning();
+   }
+
    static class EmbeddedServerAdminOperationHandler extends AdminOperationsHandler {
 
       public EmbeddedServerAdminOperationHandler() {
