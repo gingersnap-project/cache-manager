@@ -26,6 +26,7 @@ public class HotRodServer {
 
    void start(@Observes StartupEvent ignore) {
       HotRodServerConfiguration build = new HotRodServerConfigurationBuilder()
+            .host("0.0.0.0")
             .adminOperationsHandler(new EmbeddedServerAdminOperationHandler())
             .build();
       server = new org.infinispan.server.hotrod.HotRodServer();
