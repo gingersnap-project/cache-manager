@@ -24,7 +24,6 @@
     <dependency>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-core</artifactId>
-      <version>${version.infinispan}</version>
       <exclusions>
         <exclusion>
           <groupId>org.jboss.spec.javax.transaction</groupId>
@@ -39,17 +38,14 @@
     <dependency>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-commons</artifactId>
-      <version>${version.infinispan}</version>
     </dependency>
     <dependency>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-server-core</artifactId>
-      <version>${version.infinispan}</version>
     </dependency>
     <dependency>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-server-hotrod</artifactId>
-      <version>${version.infinispan}</version>
     </dependency>
   </dependencies>
 
