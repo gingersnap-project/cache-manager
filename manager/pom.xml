@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>cache-manager</artifactId>
+    <name>Gingersnap Cache Manager:: Cache Manager</name>
 
     <dependencies>
         <dependency>
