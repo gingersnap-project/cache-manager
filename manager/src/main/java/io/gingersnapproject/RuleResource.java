@@ -1,38 +1,33 @@
 package io.gingersnapproject;
 
-import java.util.Collection;
-import java.util.stream.Collectors;
-
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
 
-import org.infinispan.Cache;
-import org.infinispan.manager.EmbeddedCacheManager;
+import io.smallrye.mutiny.Multi;
 
 @Path("/rules")
 public class RuleResource {
 
    @Inject
-   EmbeddedCacheManager cacheManager;
+   Caches maps;
 
    @GET
    @Path("/{rule}/{key}")
-   @Produces("application/json")
+   @Produces(MediaType.APPLICATION_JSON)
    public String get(String rule, String key) {
-      key = String.format("%s:%s", rule, key);
-      return cache(rule).get(key);
+      byte[] value = maps.get(rule, key);
+      return value == null ? null : new String(value);
    }
 
    @GET
    @Path("/{rule}")
-   public Collection<String> getAllKeys(String rule) {
-      return cache(rule).keySet().stream().map(s -> s.replaceFirst("^" + rule + ":", "")).collect(Collectors.toList());
-   }
-
-   private Cache<String, String> cache(String rule) {
-      // TODO use rule parameter when Cache per Rule created by DB Syncer
-      return cacheManager.getCache("debezium-cache");
+   @Produces(MediaType.APPLICATION_JSON)
+   public Multi<String> getAllKeys(String rule) {
+      return Multi.createFrom().items(maps.getKeys(rule))
+            // TODO: should be able to do this in a better way - technically we also need to escape the String as well
+            .map(a -> "\"" + a + "\"");
    }
 }

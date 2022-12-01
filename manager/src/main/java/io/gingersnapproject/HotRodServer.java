@@ -1,68 +1,65 @@
 package io.gingersnapproject;
 
+import java.net.InetSocketAddress;
+
 import javax.enterprise.event.Observes;
-import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.server.core.admin.AdminOperationsHandler;
-import org.infinispan.server.core.admin.embeddedserver.CacheCreateTask;
-import org.infinispan.server.core.admin.embeddedserver.CacheGetOrCreateTask;
-import org.infinispan.server.core.admin.embeddedserver.CacheNamesTask;
-import org.infinispan.server.core.admin.embeddedserver.CacheRemoveTask;
-import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration;
-import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder;
+import org.infinispan.commons.logging.LogFactory;
+import org.infinispan.server.core.logging.Log;
+import org.infinispan.server.core.transport.NettyTransport;
 
+import io.gingersnapproject.hotrod.CommandProcessor;
+import io.gingersnapproject.hotrod.GingersnapDecoder;
+import io.gingersnapproject.hotrod.GingersnapServerConfiguration;
+import io.gingersnapproject.hotrod.GingersnapServerConfigurationBuilder;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 
 @Singleton
 public class HotRodServer {
+   static private final Log log = LogFactory.getLog(HotRodServer.class, Log.class);
 
-   @Inject
-   EmbeddedCacheManager cacheManager;
+   NettyTransport nettyTransport;
 
-   org.infinispan.server.hotrod.HotRodServer server;
-
-   void start(@Observes StartupEvent ignore) {
-      HotRodServerConfiguration build = new HotRodServerConfigurationBuilder()
-            .host("0.0.0.0")
-            .adminOperationsHandler(new EmbeddedServerAdminOperationHandler())
+   void start(@Observes StartupEvent ignore, Caches maps) {
+      GingersnapServerConfiguration configuration = new GingersnapServerConfigurationBuilder(11222)
             .build();
-      server = new org.infinispan.server.hotrod.HotRodServer();
-      server.start(build, cacheManager);
+      log.infof("Starting Netty transport for %s on %s:%s", configuration.name(), configuration.host(), configuration.port());
+      InetSocketAddress address = new InetSocketAddress(configuration.host(), configuration.port());
+      nettyTransport = new NettyTransport(address, configuration, "gingersnap", null);
+
+      nettyTransport.initializeHandler(new ChannelInitializer<>() {
+         @Override
+         protected void initChannel(Channel ch) throws Exception {
+            // TODO: look into ssl from NettyChannelInitializer
+            ch.pipeline().addLast(new GingersnapDecoder(new CommandProcessor(ch, maps)));
+         }
+      });
+
+      nettyTransport.start();
    }
 
    void stop(@Observes ShutdownEvent ignore) {
-      if (server != null) {
-         server.stop();
+      if (nettyTransport != null) {
+         nettyTransport.stop();
       }
    }
 
    public boolean isLive() {
       // TODO make more useful
-      return server.getTransport().isRunning();
+      return nettyTransport.isRunning();
    }
 
    public boolean isReady() {
       // TODO make more useful
-      return server.getTransport().isRunning();
+      return nettyTransport.isRunning();
    }
 
    public boolean hasStarted() {
       // TODO make more useful
-      return server.getTransport().isRunning();
-   }
-
-   static class EmbeddedServerAdminOperationHandler extends AdminOperationsHandler {
-
-      public EmbeddedServerAdminOperationHandler() {
-         super(
-               new CacheCreateTask(),
-               new CacheGetOrCreateTask(),
-               new CacheNamesTask(),
-               new CacheRemoveTask()
-         );
-      }
+      return nettyTransport.isRunning();
    }
 }

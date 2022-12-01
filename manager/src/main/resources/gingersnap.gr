@@ -1,0 +1,208 @@
+// Hot Rod 3.x protocol
+namespace hr3x;
+
+// Target class
+class io.gingersnapproject.hotrod.GingersnapDecoder extends ByteToMessageDecoder;
+
+// static final field values are literals
+// For some reason this isn't being picked up from the HR server jar - seems like a bug in generator
+constants io.gingersnapproject.hotrod.HotRodConstants;
+
+// methods vInt, vLong, array, byte...
+intrinsics io.gingersnapproject.hotrod.Intrinsics;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import io.netty.handler.codec.ByteToMessageDecoder;
+import org.infinispan.commons.logging.LogFactory;
+import org.infinispan.commons.dataconversion.MediaType;
+import org.infinispan.commons.dataconversion.MediaTypeIds;
+
+// TODO: Evaluate removal of these
+import org.infinispan.server.hotrod.HotRodHeader;
+import org.infinispan.server.hotrod.HotRodOperation;
+import org.infinispan.server.hotrod.logging.Log;
+
+init {
+   protected final static Log log = LogFactory.getLog(GingersnapDecoder.class, Log.class);
+   protected CommandProcessor commandProcessor;
+
+   public GingersnapDecoder(CommandProcessor commandProcessor) {
+      this.commandProcessor = commandProcessor;
+   }
+
+   protected GingersnapHeader getHeader() {
+      return header;
+   }
+
+   /**
+    * We usually know the size of the map ahead, and we want to return static empty map if we're not going to add anything.
+    */
+   protected static <K, V> Map<K, V> allocMap(int size) {
+      return size == 0 ? Collections.emptyMap() : new HashMap<>(size * 4/3, 0.75f);
+   }
+
+   protected static <T> List<T> allocList(int size) {
+      return size == 0 ? Collections.emptyList() : new ArrayList<>(size);
+   }
+
+   protected static <T> Set<T> allocSet(int size) {
+      return size == 0 ? Collections.emptySet() : new HashSet<>(size);
+   }
+}
+
+exceptionally {
+   log.trace("Parsing error", t);
+   commandProcessor.writeException(getHeader(), t);
+   state = 0;
+}
+
+// this is the root
+root request
+   : magic
+      header { if (log.isTraceEnabled()) log.tracef("Parsed header: %s", header);
+         if (version < VERSION_30) throw new UnknownVersionException("Gingersnap only supports 3.0 or newer of HR", version, messageId);}
+      parameters
+   ;
+
+header returns GingersnapHeader
+   : { magic != MAGIC_REQ }? { throw new InvalidMagicIdException("Error reading magic byte or message id: " + magic); }
+   | messageId version operation cacheName flags intelligence topologyId keyType valueType otherParams
+    { new GingersnapHeader(operation, version, messageId, cacheName, flags, intelligence, topologyId, keyType, valueType, otherParams) }
+;
+
+magic: byte;
+messageId: vLong;
+version: byte;
+operation returns HotRodOperation
+   : opCode { HotRodOperation.fromRequestOpCode(byte) }
+   ;
+opCode: byte;
+cacheName: string;
+flags: vInt;
+intelligence: byte;
+topologyId: vInt;
+keyType: mediaType;
+valueType: mediaType;
+
+mediaType returns MediaType
+   : mediaTypeDefinition mediaTypeDescription { mediaTypeDescription }
+   ;
+mediaTypeDefinition: byte;
+mediaTypeId: vInt;
+mediaTypeName: string;
+mediaTypeParams returns Map<String, String>
+   : mediaTypeParamsNum { mediaTypeParams = allocMap(mediaTypeParamsNum); }
+      #mediaTypeParamsNum ( mediaParamName mediaParamValue { mediaTypeParams.put(mediaParamName, mediaParamValue); } )
+   ;
+mediaTypeParamsNum: vInt;
+mediaParamName: string;
+mediaParamValue: string;
+mediaTypeDescription returns MediaType switch mediaTypeDefinition
+   : { 0 }? { MediaType.APPLICATION_UNKNOWN }
+   | { 1 }? mediaTypeId mediaTypeParams { MediaTypeIds.getMediaType((short) mediaTypeId).withParameters(mediaTypeParams) }
+   | { 2 }? mediaTypeName mediaTypeParams { MediaType.fromString(mediaTypeName).withParameters(mediaTypeParams) }
+   | { throw new RequestParsingException("Unknown MediaType definition: " + mediaTypeDefinition, version, messageId); }
+   ;
+
+otherParams returns Map<String, byte[]>
+: { version >= VERSION_40 }? otherParamsRev
+   | { null }
+   ;
+
+otherParamsNum: vInt;
+otherParamName: string;
+otherParamValue: array;
+otherParamsRev returns Map<String, byte[]>
+   : otherParamsNum { otherParamsRev = allocMap(otherParamsNum); }
+      #otherParamsNum ( otherParamName otherParamValue { otherParamsRev.put(otherParamName, otherParamValue); } )
+   ;
+
+key: array;
+value: array;
+supportsDuplicates
+   : { version < VERSION_40 }? { throw new UnknownVersionException("Gingersnap only supports 4.0 when using multi maps", version, messageId); }
+   | bool
+   ;
+
+// Maybe we should throw exception here instead?
+ignoreExpiration
+   : timeUnits lifespanLong maxIdleLong
+   ;
+lifespanLong
+   : { (timeUnits & 0xF0) != 0x70 && (timeUnits & 0xF0) != 0x80 }? vLong
+   | { 0L }
+   ;
+maxIdleLong
+   : { (timeUnits & 0x0F) != 0x07 && (timeUnits & 0x0F) != 0x08 }? vLong
+   | { 0L }
+   ;
+
+timeUnits : byte;
+
+queryBytes: array;
+
+numParams: byte;
+param: array;
+
+taskName: string;
+taskParam: string;
+taskParamValue: array;
+taskParams returns Map<String, byte[]>
+   : numParams { taskParams = allocMap(numParams); }
+      #numParams ( taskParam taskParamValue { taskParams.put(taskParam, taskParamValue); } )
+   ;
+
+numEntries: vInt;
+entryMap returns Map<byte[], byte[]>
+   : numEntries { entryMap = allocMap(numEntries); }
+     #numEntries ( key value { entryMap.put(key, value); } )
+   ;
+
+numKeys: vInt;
+keys returns Set<byte[]>:
+   numKeys { keys = allocSet(numKeys); } #numKeys ( key { keys.add(key); } )
+   ;
+
+segmentMask: optionalArray;
+filterConverterFactory: optionalString;
+filterConverterParams returns List<byte[]>
+   : { filterConverterFactory != null }? numParams { filterConverterParams = allocList(numParams); }
+      #numParams ( param { filterConverterParams.add(param); })
+   | { null }
+   ;
+batchSize: vInt;
+includeMetadata: bool;
+iterationId: string;
+
+parameters switch opCode
+// Cache operations
+   : { PUT_REQUEST }? key ignoreExpiration value { commandProcessor.put(getHeader(), key, value) }
+   | { GET_REQUEST }? key { commandProcessor.get(getHeader(), key) }
+   | { PUT_IF_ABSENT_REQUEST }? key ignoreExpiration value { commandProcessor.putIfAbsent(getHeader(), key, value) }
+   | { REMOVE_REQUEST }? key { commandProcessor.remove(getHeader(), key) }
+   | { STATS_REQUEST }? { commandProcessor.stats(getHeader()) }
+   | { PING_REQUEST }? { commandProcessor.ping(getHeader()); }
+   | { QUERY_REQUEST }? queryBytes { commandProcessor.query(getHeader(), queryBytes); }
+   | { SIZE_REQUEST }? { commandProcessor.size(getHeader()); }
+   | { EXEC_REQUEST }? taskName taskParams { commandProcessor.exec(getHeader(), taskName, taskParams); }
+   | { PUT_ALL_REQUEST }? ignoreExpiration entryMap { commandProcessor.putAll(getHeader(), entryMap) }
+   | { GET_ALL_REQUEST }? keys { commandProcessor.getAll(getHeader(), keys) }
+   | { ITERATION_START_REQUEST }? segmentMask filterConverterFactory filterConverterParams batchSize includeMetadata
+      { commandProcessor.iterationStart(getHeader(), segmentMask, filterConverterFactory, filterConverterParams, batchSize, includeMetadata); }
+   | { ITERATION_NEXT_REQUEST }? iterationId { commandProcessor.iterationNext(getHeader(), iterationId); }
+   | { ITERATION_END_REQUEST }? iterationId { commandProcessor.iterationEnd(getHeader(), iterationId); }
+
+// Multimap
+   | { GET_MULTIMAP_REQUEST }? key supportsDuplicates { if (!supportsDuplicates) throw new UnsupportedOperationException("Gingersnap only supports duplicates for multimap");
+   commandProcessor.getMultiMap(getHeader(), key); }
+   | { PUT_MULTIMAP_REQUEST }? key ignoreExpiration value supportsDuplicates { if (!supportsDuplicates) throw new UnsupportedOperationException("Gingersnap only supports duplicates for multimap");
+   commandProcessor.putMultiMap(getHeader(), key, value); }
+
+// Unknown
+   | { throw new HotRodUnknownOperationException("Unknown operation " + opCode, version, messageId); }
+   ;
