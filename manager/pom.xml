@@ -44,6 +44,24 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.infinispan.maven-plugins</groupId>
+                <artifactId>protocol-parser-generator</artifactId>
+                <version>1.0.2.Final</version>
+                <configuration>
+                    <files>
+                        <file>${basedir}/src/main/resources/gingersnap.gr</file>
+                    </files>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>io.quarkus</groupId>
                 <artifactId>quarkus-maven-plugin</artifactId>
                 <extensions>true</extensions>
