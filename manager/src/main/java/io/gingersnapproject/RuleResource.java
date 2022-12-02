@@ -33,6 +33,6 @@ public class RuleResource {
 
    private Cache<String, String> cache(String rule) {
       // TODO use rule parameter when Cache per Rule created by DB Syncer
-      return cacheManager.getCache("debezium-cache");
+      return cacheManager.getCache(rule);
    }
 }
