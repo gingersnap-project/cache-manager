@@ -6,6 +6,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
+import org.eclipse.microprofile.openapi.annotations.Operation;
+
 import io.smallrye.mutiny.Multi;
 
 @Path("/rules")
@@ -15,6 +17,7 @@ public class RuleResource {
    Caches maps;
 
    @GET
+   @Operation(summary = "Retrieve a cache entry associated with the provided rule and key")
    @Path("/{rule}/{key}")
    @Produces(MediaType.APPLICATION_JSON)
    public String get(String rule, String key) {
@@ -23,6 +26,7 @@ public class RuleResource {
    }
 
    @GET
+   @Operation(summary = "Retrieve all cached entries associated with the provided rule")
    @Path("/{rule}")
    @Produces(MediaType.APPLICATION_JSON)
    public Multi<String> getAllKeys(String rule) {
