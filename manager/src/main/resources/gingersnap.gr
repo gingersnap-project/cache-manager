@@ -183,15 +183,12 @@ parameters switch opCode
 // Cache operations
    : { PUT_REQUEST }? key ignoreExpiration value { commandProcessor.put(getHeader(), key, value) }
    | { GET_REQUEST }? key { commandProcessor.get(getHeader(), key) }
-   | { PUT_IF_ABSENT_REQUEST }? key ignoreExpiration value { commandProcessor.putIfAbsent(getHeader(), key, value) }
    | { REMOVE_REQUEST }? key { commandProcessor.remove(getHeader(), key) }
    | { STATS_REQUEST }? { commandProcessor.stats(getHeader()) }
    | { PING_REQUEST }? { commandProcessor.ping(getHeader()); }
    | { QUERY_REQUEST }? queryBytes { commandProcessor.query(getHeader(), queryBytes); }
-   | { SIZE_REQUEST }? { commandProcessor.size(getHeader()); }
    | { EXEC_REQUEST }? taskName taskParams { commandProcessor.exec(getHeader(), taskName, taskParams); }
    | { PUT_ALL_REQUEST }? ignoreExpiration entryMap { commandProcessor.putAll(getHeader(), entryMap) }
-   | { GET_ALL_REQUEST }? keys { commandProcessor.getAll(getHeader(), keys) }
    | { ITERATION_START_REQUEST }? segmentMask filterConverterFactory filterConverterParams batchSize includeMetadata
       { commandProcessor.iterationStart(getHeader(), segmentMask, filterConverterFactory, filterConverterParams, batchSize, includeMetadata); }
    | { ITERATION_NEXT_REQUEST }? iterationId { commandProcessor.iterationNext(getHeader(), iterationId); }

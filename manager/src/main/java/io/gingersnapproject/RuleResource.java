@@ -9,6 +9,7 @@ import javax.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 
 @Path("/rules")
 public class RuleResource {
@@ -20,9 +21,8 @@ public class RuleResource {
    @Operation(summary = "Retrieve a cache entry associated with the provided rule and key")
    @Path("/{rule}/{key}")
    @Produces(MediaType.APPLICATION_JSON)
-   public String get(String rule, String key) {
-      byte[] value = maps.get(rule, key);
-      return value == null ? null : new String(value);
+   public Uni<String> get(String rule, String key) {
+      return maps.get(rule, key);
    }
 
    @GET
