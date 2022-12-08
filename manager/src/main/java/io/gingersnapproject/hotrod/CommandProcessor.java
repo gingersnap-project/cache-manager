@@ -3,8 +3,8 @@ package io.gingersnapproject.hotrod;
 import static java.lang.String.format;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 
 import org.infinispan.commons.dataconversion.MediaType;
 import org.infinispan.commons.logging.LogFactory;
-import org.infinispan.commons.marshall.WrappedByteArray;
 import org.infinispan.commons.util.Util;
 import org.infinispan.server.hotrod.HotRodOperation;
 import org.infinispan.server.hotrod.OperationStatus;
@@ -28,21 +27,17 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import io.gingersnapproject.Caches;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.smallrye.mutiny.Uni;
 
-public class CommandProcessor {
+public record CommandProcessor(Channel channel, Caches maps) {
    private static final Log log = LogFactory.getLog(CommandProcessor.class, Log.class);
 
-   protected final Channel channel;
-   protected final Caches maps;
-
-   public CommandProcessor(Channel channel, Caches maps) {
-      this.channel = channel;
-      this.maps = maps;
+   private static String toString(byte[] bytes) {
+      return new String(bytes, StandardCharsets.UTF_8);
    }
 
-   private Cache<String, WrappedByteArray> getOrCreateMap(String name) {
-      // TODO: eventually need to apply eviction to this. Can use a weigher to count byte[] size per key/value
-      return maps.getMaps().computeIfAbsent(name, ___ -> Caffeine.newBuilder().build());
+   private static byte[] toByteArray(String str) {
+      return str == null ? null : str.getBytes(StandardCharsets.UTF_8);
    }
 
    private Cache<String, List<byte[]>> getOrCreateMultimap(String name) {
@@ -54,45 +49,29 @@ public class CommandProcessor {
          writeException(header, new UnsupportedOperationException("previous value is not supported!"));
          return;
       }
-      var cache = getOrCreateMap(header.getCacheName());
 
       try {
-         cache.put(new String(key), new WrappedByteArray(value));
+         maps.put(header.getCacheName(), toString(key), toString(value));
          writeSuccess(header);
       } catch (Throwable t) {
          writeException(header, t);
       }
    }
 
-   public void get(GingersnapHeader header, byte[] key) {
-      var cache = getOrCreateMap(header.getCacheName());
-
-      try {
-         WrappedByteArray wba = cache.getIfPresent(new String(key));
-         if (wba == null) {
-            writeNotExist(header);
-         } else {
-            writeResponse(header.encoder().valueResponse(header, null, channel, OperationStatus.Success, wba.getBytes()));
-         }
-      } catch (Throwable t) {
-         writeException(header, t);
+   private void handleGetResponse(GingersnapHeader header, byte[] value) {
+      if (value == null) {
+         writeNotExist(header);
+      } else {
+         writeResponse(header.encoder().valueResponse(header, null, channel, OperationStatus.Success, value));
       }
    }
 
-   public void putIfAbsent(GingersnapHeader header, byte[] key, byte[] value) {
-      if (header.hasFlag(ProtocolFlag.ForceReturnPreviousValue)) {
-         writeException(header, new UnsupportedOperationException("previous value is not supported!"));
-         return;
-      }
-      var cache = getOrCreateMap(header.getCacheName());
-
+   public void get(GingersnapHeader header, byte[] key) {
       try {
-         WrappedByteArray wba = cache.asMap().putIfAbsent(new String(key), new WrappedByteArray(value));
-         if (wba == null) {
-            this.writeSuccess(header);
-         } else {
-            writeResponse(header.encoder().emptyResponse(header, null, channel, OperationStatus.OperationNotExecuted));
-         }
+         // This can never be null
+         Uni<String> uniValue = maps.get(header.getCacheName(), toString(key));
+         uniValue.subscribe().with(s -> handleGetResponse(header, toByteArray(s)),
+               t -> writeException(header, t));
       } catch (Throwable t) {
          writeException(header, t);
       }
@@ -103,14 +82,12 @@ public class CommandProcessor {
          writeException(header, new UnsupportedOperationException("previous value is not supported!"));
          return;
       }
-      var cache = getOrCreateMap(header.getCacheName());
 
       try {
-         var prev = cache.asMap().remove(new String(key));
-         if (prev == null) {
-            this.writeNotExist(header);
-         } else {
+         if (maps.remove(header.getCacheName(), toString(key))) {
             this.writeSuccess(header);
+         } else {
+            this.writeNotExist(header);
          }
       } catch (Throwable t) {
          writeException(header, t);
@@ -121,37 +98,14 @@ public class CommandProcessor {
       this.writeResponse(header.encoder().pingResponse(header, null, this.channel, OperationStatus.Success));
    }
 
-   public void size(GingersnapHeader header) {
-      var cache = maps.getMaps().get(header.getCacheName());
-      var size = cache == null ? -1 : cache.estimatedSize();
-      this.writeResponse(header.encoder().unsignedLongResponse(header, null, this.channel, size));
-   }
-
-   public void putAll(GingersnapHeader header, Map<byte[],byte[]> entryMap) {
-      var cache = getOrCreateMap(header.getCacheName());
+   public void putAll(GingersnapHeader header, Map<byte[], byte[]> entryMap) {
 
       try {
+         String cacheName = header.getCacheName();
          for (Map.Entry<byte[], byte[]> entry : entryMap.entrySet()) {
-            cache.put(new String(entry.getKey()), new WrappedByteArray(entry.getValue()));
+            maps.put(cacheName, toString(entry.getKey()), toString(entry.getValue()));
          }
          writeSuccess(header);
-      } catch (Throwable t) {
-         writeException(header, t);
-      }
-   }
-
-   public void getAll(GingersnapHeader header, Set<byte[]> keys) {
-      var cache = getOrCreateMap(header.getCacheName());
-
-      try {
-         Map<byte[], byte[]> results = new LinkedHashMap<>(keys.size());
-         for (byte[] key : keys) {
-            WrappedByteArray value = cache.getIfPresent(new String(key));
-            if (value != null) {
-               results.put(key, value.getBytes());
-            }
-         }
-         writeResponse(header.encoder().getAllResponse(header, null, channel, results));
       } catch (Throwable t) {
          writeException(header, t);
       }
@@ -165,7 +119,7 @@ public class CommandProcessor {
       writeException(header, new UnsupportedOperationException("Query not supported yet!"));
    }
 
-   public void exec(GingersnapHeader header, String task, Map<String,byte[]> taskParams) {
+   public void exec(GingersnapHeader header, String task, Map<String, byte[]> taskParams) {
       // TODO: do we support tasks? If anything this is just so adding a new cache doesn't error
       writeResponse(header.encoder().valueResponse(header, null, channel, OperationStatus.Success, Util.EMPTY_BYTE_ARRAY));
    }
@@ -182,7 +136,7 @@ public class CommandProcessor {
       writeException(header, new UnsupportedOperationException("Iteration not supported yet!"));
    }
 
-   protected void writeResponse(ByteBuf buf) {
+   void writeResponse(ByteBuf buf) {
       channel.writeAndFlush(buf);
    }
 
@@ -203,24 +157,21 @@ public class CommandProcessor {
       if (cause instanceof InvalidMagicIdException) {
          log.exceptionReported(cause);
          status = OperationStatus.InvalidMagicOrMsgId;
-      } else if (cause instanceof HotRodUnknownOperationException) {
+      } else if (cause instanceof HotRodUnknownOperationException hruoe) {
          log.exceptionReported(cause);
-         HotRodUnknownOperationException hruoe = (HotRodUnknownOperationException) cause;
          header = hruoe.toHeader();
          status = OperationStatus.UnknownOperation;
-      } else if (cause instanceof UnknownVersionException) {
+      } else if (cause instanceof UnknownVersionException uve) {
          log.exceptionReported(cause);
-         UnknownVersionException uve = (UnknownVersionException) cause;
          header = uve.toHeader();
          status = OperationStatus.UnknownVersion;
-      } else if (cause instanceof RequestParsingException) {
+      } else if (cause instanceof RequestParsingException rpe) {
          if (cause instanceof CacheNotFoundException)
             log.debug(cause.getMessage());
          else
             log.exceptionReported(cause);
 
          msg = cause.getCause() == null ? cause.toString() : format("%s: %s", cause.getMessage(), cause.getCause().toString());
-         RequestParsingException rpe = (RequestParsingException) cause;
          header = rpe.toHeader();
          status = OperationStatus.ParseError;
       } else if (cause instanceof IOException) {
