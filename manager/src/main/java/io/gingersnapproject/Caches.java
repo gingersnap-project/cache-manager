@@ -1,23 +1,25 @@
 package io.gingersnapproject;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import io.gingersnapproject.database.DatabaseHandler;
+import io.gingersnapproject.metrics.CacheAccessRecord;
+import io.gingersnapproject.metrics.CacheManagerMetrics;
+import io.gingersnapproject.mutiny.UniItem;
+import io.smallrye.mutiny.Uni;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
-
-import io.gingersnapproject.database.DatabaseHandler;
-import io.gingersnapproject.mutiny.UniItem;
-import io.smallrye.mutiny.Uni;
-
 @Singleton
 public class Caches {
+   @Inject
+   CacheManagerMetrics metrics;
    private final ConcurrentMap<String, LoadingCache<String, Uni<String>>> maps = new ConcurrentHashMap<>();
    private final ConcurrentMap<String, Cache<String, List<byte[]>>> multiMaps = new ConcurrentHashMap<>();
 
@@ -77,7 +79,15 @@ public class Caches {
    }
 
    public Uni<String> get(String name, String key) {
-      return getOrCreateMap(name).get(key);
+      CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess();
+      try {
+         Uni<String> uni = getOrCreateMap(name).get(key);
+         cacheAccessRecord.localHit(uni instanceof UniItem<String>);
+         return uni.onItemOrFailure().invoke(cacheAccessRecord);
+      } catch (RuntimeException e) {
+         cacheAccessRecord.recordThrowable(e);
+         throw e;
+      }
    }
 
    public Stream<String> getKeys(String name) {
