@@ -3,8 +3,6 @@ package io.gingersnapproject.search;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.CompletableFuture;
-
 import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
@@ -15,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.smallrye.mutiny.Uni;
 
 @QuarkusTest
 @QuarkusTestResource(SearchTestResource.class)
@@ -30,31 +29,32 @@ public class SearchBackendTest {
       assertThat(searchBackend).isNotNull();
 
       // mapping
-      String response = searchBackend.mapping("developers").toCompletableFuture().join();
+      String response = searchBackend.mapping("developers").await().indefinitely();
       LOG.info(response);
       assertThat(response).contains("\"index\":\"developers\"");
 
-      CompletableFuture<String>[] futures = new CompletableFuture[100];
+      Uni<String>[] unis = new Uni[100];
       for (int i = 0; i < 100; i++) {
          String id = StringUtils.leftPad(i + "", 3, "0");
          Json json = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id);
-         futures[i] = searchBackend.put("developers", id + "", json).toCompletableFuture();
+         unis[i] = searchBackend.put("developers", id + "", json);
       }
 
-      response = futures[0].join();
+      response = unis[0].await().indefinitely();
       LOG.info(response);
 
       Condition<String> created = new Condition<>(r -> r.contains("\"result\":\"created\""), "created");
       Condition<String> updated = new Condition<>(r -> r.contains("\"result\":\"updated\""), "updated");
       assertThat(response).is(anyOf(created, updated));
 
-      CompletableFuture.allOf(futures).join();
+      Uni.combine().all().unis(unis).combinedWith(unused -> null).await().indefinitely();
 
       // TODO find a better way to wait for the puts
       Thread.sleep(1000);
 
       // search
-      SearchResult queryResponse = searchBackend.query("select * from developers order by name").toCompletableFuture().join();
+      SearchResult queryResponse = searchBackend.query("select * from developers order by name")
+            .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).hasSize(100);
       assertThat(queryResponse.hitsExact()).isTrue();
@@ -68,7 +68,8 @@ public class SearchBackendTest {
       assertThat(queryResponse.hits().get(19).documentId()).isEqualTo("019");
 
       // paginated search
-      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10").toCompletableFuture().join();
+      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10")
+            .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).hasSize(10);
       assertThat(queryResponse.hitCount()).isEqualTo(100);
@@ -79,7 +80,7 @@ public class SearchBackendTest {
       assertThat(queryResponse.hits().get(9).documentId()).isEqualTo("019");
 
       // remove
-      response = searchBackend.remove("developers", "015").toCompletableFuture().join();
+      response = searchBackend.remove("developers", "015").await().indefinitely();
       LOG.info(response);
 
       assertThat(response).contains("\"result\":\"deleted\"");
@@ -88,7 +89,8 @@ public class SearchBackendTest {
       Thread.sleep(1000);
 
       // new paginated search with 015 missing
-      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10").toCompletableFuture().join();
+      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10")
+            .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).extracting("documentId").containsExactly("010", "011", "012", "013", "014", "016", "017", "018", "019", "020");
       assertThat(queryResponse.hitCount()).isEqualTo(99);
