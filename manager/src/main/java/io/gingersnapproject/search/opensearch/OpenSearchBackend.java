@@ -1,5 +1,8 @@
 package io.gingersnapproject.search.opensearch;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
@@ -12,12 +15,14 @@ import io.gingersnapproject.search.SearchResult;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.smallrye.mutiny.Uni;
 
-@LookupIfProperty(name = "service.opensearch.enabled", stringValue = "true")
+@LookupIfProperty(name = SearchBackend.PROPERTY, stringValue = "opensearch")
 @ApplicationScoped
 public class OpenSearchBackend implements SearchBackend {
 
    @Inject
-   private RestClient restClient;
+   RestClient restClient;
+
+   Set<String> mappedRules = ConcurrentHashMap.newKeySet();
 
    @Override
    public Uni<String> mapping(String indexName) {
@@ -31,19 +36,36 @@ public class OpenSearchBackend implements SearchBackend {
       return commandSubmit(request);
    }
 
-   @Override
-   public Uni<String> put(String indexName, String documentId, Json value) {
-      Request request = new Request("PUT", "/" + indexName + "/_doc/" + documentId);
-      request.setJsonEntity(value.toString());
+   private Uni<?> ensureMapping(String indexName) {
+      // We do not use contains here, as the action is idempotent and we don't want concurrent index updates to cause
+      // some to be ran without mapping first being applied
+      if (!mappedRules.contains(indexName)) {
+         return mapping(indexName).onItem().invoke(() -> mappedRules.add(indexName));
+      }
+      return Uni.createFrom().nullItem();
+   }
 
-      return commandSubmit(request);
+   @Override
+   public Uni<String> put(String indexName, String documentId, String jsonString) {
+      Uni<?> mappingUni = ensureMapping(indexName);
+      return mappingUni.onItem()
+            .transformToUni(___ -> {
+               Request request = new Request("PUT", "/" + indexName + "/_doc/" + documentId);
+               request.setJsonEntity(jsonString);
+
+               return commandSubmit(request);
+            });
    }
 
    @Override
    public Uni<String> remove(String indexName, String documentId) {
-      Request request = new Request("DELETE", "/" + indexName + "/_doc/" + documentId);
+      Uni<?> mappingUni = ensureMapping(indexName);
+      return mappingUni.onItem()
+            .transformToUni(___ -> {
+               Request request = new Request("DELETE", "/" + indexName + "/_doc/" + documentId);
 
-      return commandSubmit(request);
+               return commandSubmit(request);
+            });
    }
 
    @Override

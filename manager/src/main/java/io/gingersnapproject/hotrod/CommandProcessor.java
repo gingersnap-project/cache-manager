@@ -51,8 +51,8 @@ public record CommandProcessor(Channel channel, Caches maps) {
       }
 
       try {
-         maps.put(header.getCacheName(), toString(key), toString(value));
-         writeSuccess(header);
+         Uni<String> putUni = maps.put(header.getCacheName(), toString(key), toString(value));
+         putUni.subscribe().with(___ -> writeSuccess(header), t -> writeException(header, t));
       } catch (Throwable t) {
          writeException(header, t);
       }
@@ -84,11 +84,14 @@ public record CommandProcessor(Channel channel, Caches maps) {
       }
 
       try {
-         if (maps.remove(header.getCacheName(), toString(key))) {
-            this.writeSuccess(header);
-         } else {
-            this.writeNotExist(header);
-         }
+         Uni<Boolean> removeUni = maps.remove(header.getCacheName(), toString(key));
+         removeUni.subscribe().with(removed -> {
+            if (removed) {
+               this.writeSuccess(header);
+            } else {
+               this.writeNotExist(header);
+            }
+         }, t -> writeException(header, t));
       } catch (Throwable t) {
          writeException(header, t);
       }

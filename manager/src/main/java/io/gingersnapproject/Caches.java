@@ -17,6 +17,7 @@ import io.gingersnapproject.database.DatabaseHandler;
 import io.gingersnapproject.metrics.CacheAccessRecord;
 import io.gingersnapproject.metrics.CacheManagerMetrics;
 import io.gingersnapproject.mutiny.UniItem;
+import io.gingersnapproject.search.SearchBackend;
 import io.smallrye.mutiny.Uni;
 
 @Singleton
@@ -30,6 +31,9 @@ public class Caches {
    DatabaseHandler databaseHandler;
    @Inject
    Configuration configuration;
+
+   @Inject
+   SearchBackend searchBackend;
 
    public ConcurrentMap<String, Cache<String, List<byte[]>>> getMultiMaps() {
       return multiMaps;
@@ -62,6 +66,7 @@ public class Caches {
                      .memoize().indefinitely();
                // This will replace the pending Uni from the DB with a UniItem so we can properly size the entry
                // Note due to how lazy subscribe works the entry won't be present in the map  yet
+               // TODO: technically only want to do this on caller subscribing
                dbUni.subscribe()
                      .with(result -> replace(name, key, dbUni, result), t -> actualRemove(name, key, dbUni));
                return dbUni;
@@ -82,9 +87,17 @@ public class Caches {
       }
    }
 
-   public void put(String name, String key, String value) {
+   public Uni<String> put(String name, String key, String value) {
+      Uni<String> indexUni = searchBackend.put(name, key, value)
+                  .map(___ -> value)
+            // Make sure subsequent subscriptions don't update index again
+                  .memoize().indefinitely();
       getOrCreateMap(name)
-            .put(key, UniItem.fromItem(value));
+            .put(key, indexUni);
+      // TODO: technically only want to do this on caller subscribing
+      indexUni.subscribe()
+                  .with(s -> replace(name, key, indexUni, value), t -> actualRemove(name, key, indexUni));
+      return indexUni;
    }
 
    public Uni<String> get(String name, String key) {
@@ -106,10 +119,21 @@ public class Caches {
             .stream();
    }
 
-   public boolean remove(String name, String key) {
-      // TODO: technically this says it removed something even if the Uni contained a null value prior
+   public Uni<Boolean> remove(String name, String key) {
+      Uni<String> indexUni = searchBackend.remove(name, key)
+            .<String>map(___ -> null)
+            // Make sure subsequent subscriptions don't update index again
+            .memoize().indefinitely();
       // We put a null uni into the map if a value existed before. This way we cache the tombstone.
-      return getOrCreateMap(name).asMap()
-            .replace(key, Uni.createFrom().nullItem()) != null;
+      Uni<String> prev = getOrCreateMap(name).asMap()
+            .replace(key, indexUni);
+      if (prev != null) {
+         // TODO: technically only want to do this on caller subscribing
+         indexUni.subscribe()
+               .with(s -> replace(name, key, indexUni, null), t -> actualRemove(name, key, indexUni));
+         // TODO: technically this says it removed something even if the Uni contained a null value prior
+         return Uni.createFrom().item(Boolean.TRUE);
+      }
+      return Uni.createFrom().item(Boolean.FALSE);
    }
 }
