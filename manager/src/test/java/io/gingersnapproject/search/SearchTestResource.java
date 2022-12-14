@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testcontainers.utility.DockerImageName;
 
 import io.quarkus.test.common.DevServicesContext;
@@ -41,9 +40,11 @@ public class SearchTestResource implements QuarkusTestResourceLifecycleManager, 
       } catch (InterruptedException e) {
       }
 
-      return ImmutableMap.of(
+      return Map.of(
             "quarkus.elasticsearch.hosts", container.getHttpHostAddress(),
-            "quarkus.elasticsearch.username", "admin", "quarkus.elasticsearch.password", "admin");
+            "quarkus.elasticsearch.username", "admin",
+            "quarkus.elasticsearch.password", "admin",
+            SearchBackend.PROPERTY, "opensearch");
    }
 
    @Override

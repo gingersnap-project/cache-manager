@@ -34,7 +34,8 @@ record CommandResponseListener(UniEmitter<? super String> emitter) implements Re
          //   completing the future normally, and the ones we don't want, reporting the exception to the caller,
          //   completing the future exceptionally.
          emitter.complete(exception.getMessage());
+      } else {
+         emitter.fail(exception);
       }
-      emitter.fail(exception);
    }
 }

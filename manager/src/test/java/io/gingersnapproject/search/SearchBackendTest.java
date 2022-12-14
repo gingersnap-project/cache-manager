@@ -20,6 +20,7 @@ import io.smallrye.mutiny.Uni;
 public class SearchBackendTest {
 
    private static final Logger LOG = Logger.getLogger(SearchBackendTest.class);
+   private static final String INDEX_NAME = "developers-1";
 
    @Inject
    SearchBackend searchBackend;
@@ -29,15 +30,15 @@ public class SearchBackendTest {
       assertThat(searchBackend).isNotNull();
 
       // mapping
-      String response = searchBackend.mapping("developers").await().indefinitely();
+      String response = searchBackend.mapping(INDEX_NAME).await().indefinitely();
       LOG.info(response);
-      assertThat(response).contains("\"index\":\"developers\"");
+      assertThat(response).contains("\"index\":\"" + INDEX_NAME + "\"");
 
       Uni<String>[] unis = new Uni[100];
       for (int i = 0; i < 100; i++) {
          String id = StringUtils.leftPad(i + "", 3, "0");
          Json json = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id);
-         unis[i] = searchBackend.put("developers", id + "", json);
+         unis[i] = searchBackend.put(INDEX_NAME, id + "", json.toString());
       }
 
       response = unis[0].await().indefinitely();
@@ -53,7 +54,7 @@ public class SearchBackendTest {
       Thread.sleep(1000);
 
       // search
-      SearchResult queryResponse = searchBackend.query("select * from developers order by name")
+      SearchResult queryResponse = searchBackend.query("select * from " + INDEX_NAME + " order by name")
             .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).hasSize(100);
@@ -68,7 +69,7 @@ public class SearchBackendTest {
       assertThat(queryResponse.hits().get(19).documentId()).isEqualTo("019");
 
       // paginated search
-      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10")
+      queryResponse = searchBackend.query("select * from " + INDEX_NAME + " order by name limit 10 offset 10")
             .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).hasSize(10);
@@ -80,7 +81,7 @@ public class SearchBackendTest {
       assertThat(queryResponse.hits().get(9).documentId()).isEqualTo("019");
 
       // remove
-      response = searchBackend.remove("developers", "015").await().indefinitely();
+      response = searchBackend.remove(INDEX_NAME, "015").await().indefinitely();
       LOG.info(response);
 
       assertThat(response).contains("\"result\":\"deleted\"");
@@ -89,7 +90,7 @@ public class SearchBackendTest {
       Thread.sleep(1000);
 
       // new paginated search with 015 missing
-      queryResponse = searchBackend.query("select * from developers order by name limit 10 offset 10")
+      queryResponse = searchBackend.query("select * from " + INDEX_NAME + " order by name limit 10 offset 10")
             .await().indefinitely();
       LOG.info(queryResponse);
       assertThat(queryResponse.hits()).extracting("documentId").containsExactly("010", "011", "012", "013", "014", "016", "017", "018", "019", "020");
