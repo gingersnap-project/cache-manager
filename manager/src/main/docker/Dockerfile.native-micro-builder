@@ -6,7 +6,7 @@ USER quarkus
 WORKDIR /code
 COPY --chown=quarkus:quarkus infinispan /code/infinispan
 COPY --chown=quarkus:quarkus manager /code/manager
-RUN ./mvnw package -Pnative
+RUN ./mvnw package -Pnative -DskipTests
 
 FROM quay.io/quarkus/quarkus-micro-image:1.0
 WORKDIR /work/
