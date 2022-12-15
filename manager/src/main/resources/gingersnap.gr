@@ -189,6 +189,7 @@ parameters switch opCode
    | { QUERY_REQUEST }? queryBytes { commandProcessor.query(getHeader(), queryBytes); }
    | { EXEC_REQUEST }? taskName taskParams { commandProcessor.exec(getHeader(), taskName, taskParams); }
    | { PUT_ALL_REQUEST }? ignoreExpiration entryMap { commandProcessor.putAll(getHeader(), entryMap) }
+   | { GET_ALL_REQUEST }? keys { commandProcessor.getAll(getHeader(), keys) }
    | { ITERATION_START_REQUEST }? segmentMask filterConverterFactory filterConverterParams batchSize includeMetadata
       { commandProcessor.iterationStart(getHeader(), segmentMask, filterConverterFactory, filterConverterParams, batchSize, includeMetadata); }
    | { ITERATION_NEXT_REQUEST }? iterationId { commandProcessor.iterationNext(getHeader(), iterationId); }
