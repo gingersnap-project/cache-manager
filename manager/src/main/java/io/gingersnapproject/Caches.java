@@ -1,20 +1,23 @@
 package io.gingersnapproject;
 
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
+import io.gingersnapproject.configuration.Configuration;
 import io.gingersnapproject.database.DatabaseHandler;
 import io.gingersnapproject.metrics.CacheAccessRecord;
 import io.gingersnapproject.metrics.CacheManagerMetrics;
 import io.gingersnapproject.mutiny.UniItem;
 import io.smallrye.mutiny.Uni;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Stream;
 
 @Singleton
 public class Caches {
@@ -25,12 +28,18 @@ public class Caches {
 
    @Inject
    DatabaseHandler databaseHandler;
+   @Inject
+   Configuration configuration;
 
    public ConcurrentMap<String, Cache<String, List<byte[]>>> getMultiMaps() {
       return multiMaps;
    }
 
    private LoadingCache<String, Uni<String>> getOrCreateMap(String name) {
+      if (!configuration.rules().containsKey(name)) {
+         // If no rule defined, don't apply database loading (internal caches)
+         return maps.computeIfAbsent(name,  ___ ->  Caffeine.newBuilder().build(k -> null));
+      }
       return maps.computeIfAbsent(name, ___ -> Caffeine.newBuilder()
             // TODO: populate this with config
             .maximumWeight(1_000_000)
