@@ -5,6 +5,8 @@ import static java.lang.String.format;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -162,10 +164,32 @@ public class CommandProcessor {
             writeSuccess(header);
             return;
          }
+         Map<String, String> transformed = new HashMap<>();
          for (Map.Entry<byte[], byte[]> entry : entryMap.entrySet()) {
-            maps.put(cacheName, toString(entry.getKey()), toString(entry.getValue()));
+            transformed.put(toString(entry.getKey()), toString(entry.getValue()));
          }
-         writeSuccess(header);
+
+         maps.putAll(cacheName, transformed).subscribe()
+                 .with(ignore -> writeSuccess(header), t -> writeException(header, t));
+      } catch (Throwable t) {
+         writeException(header, t);
+      }
+   }
+
+   public void getAll(GingersnapHeader header, Set<byte[]> keys) {
+      try {
+         String cacheName = header.getCacheName();
+         Set<String> keysTransformed = new HashSet<>();
+         for (byte[] key : keys) keysTransformed.add(toString(key));
+
+         maps.getAll(cacheName, keysTransformed).subscribe()
+                 .with(s -> {
+                    Map<byte[], byte[]> transformed = new HashMap<>();
+                    for (Map.Entry<String, String> entry : s.entrySet()) {
+                       transformed.put(toByteArray(entry.getKey()), toByteArray(entry.getValue()));
+                    }
+                    writeResponse(header.encoder().getAllResponse(header, null, channel, transformed));
+                 }, t -> writeException(header, t));
       } catch (Throwable t) {
          writeException(header, t);
       }
