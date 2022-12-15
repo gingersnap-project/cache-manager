@@ -11,6 +11,7 @@ import org.infinispan.commons.dataconversion.internal.Json;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
+import io.gingersnapproject.search.opensearch.OpenSearchBackend;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;
@@ -23,7 +24,7 @@ public class SearchBackendTest {
    private static final String INDEX_NAME = "developers-1";
 
    @Inject
-   SearchBackend searchBackend;
+   OpenSearchBackend searchBackend;
 
    @Test
    public void test() throws Exception {

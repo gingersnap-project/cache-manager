@@ -24,7 +24,6 @@ public class OpenSearchBackend implements SearchBackend {
 
    Set<String> mappedRules = ConcurrentHashMap.newKeySet();
 
-   @Override
    public Uni<String> mapping(String indexName) {
       Request request = new Request("PUT", "/" + indexName);
 

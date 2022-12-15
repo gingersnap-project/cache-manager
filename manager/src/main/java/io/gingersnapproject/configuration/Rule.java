@@ -16,6 +16,9 @@ public interface Rule {
 
       String selectStatement();
 
+      @WithDefault("false")
+      boolean queryEnabled();
+
       enum KeyType {
             PLAIN {
                   @Override
