@@ -1,8 +1,11 @@
 package io.gingersnapproject.search;
 
+import javax.enterprise.context.ApplicationScoped;
+
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.smallrye.mutiny.Uni;
 
+@ApplicationScoped
 @LookupIfProperty(name = SearchBackend.PROPERTY, stringValue = "none", lookupIfMissing = true)
 public class NoOpSearchBackend implements SearchBackend {
    @Override

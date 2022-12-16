@@ -1,5 +1,6 @@
 package io.gingersnapproject.search;
 
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -11,7 +12,7 @@ import io.smallrye.mutiny.Uni;
 public class IndexingHandler {
 
    @Inject
-   SearchBackend searchBackend;
+   Instance<SearchBackend> searchBackend;
 
    @Inject
    Configuration configuration;
@@ -21,7 +22,7 @@ public class IndexingHandler {
       if (rule == null || !rule.queryEnabled()) {
          return Uni.createFrom().nullItem();
       }
-      return searchBackend.put(indexName, documentId, jsonString);
+      return searchBackend.get().put(indexName, documentId, jsonString);
    }
 
    public Uni<String> remove(String indexName, String documentId) {
@@ -29,6 +30,6 @@ public class IndexingHandler {
       if (rule == null || !rule.queryEnabled()) {
          return Uni.createFrom().nullItem();
       }
-      return searchBackend.remove(indexName, documentId);
+      return searchBackend.get().remove(indexName, documentId);
    }
 }
