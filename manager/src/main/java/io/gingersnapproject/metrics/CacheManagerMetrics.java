@@ -1,5 +1,7 @@
 package io.gingersnapproject.metrics;
 
+import com.github.benmanes.caffeine.cache.LoadingCache;
+
 /**
  * Entry point to collect metrics.
  */
@@ -15,4 +17,18 @@ public interface CacheManagerMetrics {
     */
    <T> CacheAccessRecord<T> recordCacheAccess();
 
+   /**
+    * Register metrics associated with the {@code rule} stored in {@code cache}.
+    *
+    * @param rule  The rule's name.
+    * @param cache The {@link LoadingCache} where the data is cached.
+    */
+   void registerRulesMetrics(String rule, LoadingCache<?, ?> cache);
+
+   /**
+    * Un-register the metrics associated with {@code  rule}.
+    *
+    * @param rule The rule's name.
+    */
+   void unregisterRulesMetrics(String rule);
 }
