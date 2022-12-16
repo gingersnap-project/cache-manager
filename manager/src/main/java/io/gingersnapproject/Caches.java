@@ -1,16 +1,8 @@
 package io.gingersnapproject;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Stream;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-
 import io.gingersnapproject.configuration.Configuration;
 import io.gingersnapproject.database.DatabaseHandler;
 import io.gingersnapproject.metrics.CacheAccessRecord;
@@ -18,6 +10,12 @@ import io.gingersnapproject.metrics.CacheManagerMetrics;
 import io.gingersnapproject.mutiny.UniItem;
 import io.gingersnapproject.search.IndexingHandler;
 import io.smallrye.mutiny.Uni;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 
 @Singleton
 public class Caches {
@@ -33,36 +31,7 @@ public class Caches {
    IndexingHandler indexingHandler;
 
    private LoadingCache<String, Uni<String>> getOrCreateMap(String name) {
-      if (!configuration.rules().containsKey(name)) {
-         throw new IllegalArgumentException("Rule " + name + " not configured");
-      }
-      return maps.computeIfAbsent(name, ___ -> Caffeine.newBuilder()
-            // TODO: populate this with config
-            .maximumWeight(1_000_000)
-            .<String, Uni<String>>weigher((k, v) -> {
-               // TODO: need to revisit this later
-               int size = k.length() * 2 + 1;
-               if (v instanceof UniItem<String> uniItem) {
-                  var actualValue = uniItem.getItem();
-                  size += actualValue == null ? 0 : actualValue.length() * 2 + 1;
-                  if (size < 0) {
-                     size = Integer.MAX_VALUE;
-                  }
-               }
-               return size;
-            })
-            .build(key -> {
-               Uni<String> dbUni = databaseHandler.select(name, key)
-                     // Make sure to use memoize, so that if multiple people subscribe to this it won't cause
-                     // multiple DB lookups
-                     .memoize().indefinitely();
-               // This will replace the pending Uni from the DB with a UniItem so we can properly size the entry
-               // Note due to how lazy subscribe works the entry won't be present in the map  yet
-               // TODO: technically only want to do this on caller subscribing
-               dbUni.subscribe()
-                     .with(result -> replace(name, key, dbUni, result), t -> actualRemove(name, key, dbUni));
-               return dbUni;
-            }));
+      return maps.computeIfAbsent(name, this::createLoadingCache);
    }
 
    private void replace(String name, String key, Uni<String> prev, String value) {
@@ -81,14 +50,14 @@ public class Caches {
 
    public Uni<String> put(String name, String key, String value) {
       Uni<String> indexUni = indexingHandler.put(name, key, value)
-                  .map(___ -> value)
+            .map(___ -> value)
             // Make sure subsequent subscriptions don't update index again
-                  .memoize().indefinitely();
+            .memoize().indefinitely();
       getOrCreateMap(name)
             .put(key, indexUni);
       // TODO: technically only want to do this on caller subscribing
       indexUni.subscribe()
-                  .with(s -> replace(name, key, indexUni, value), t -> actualRemove(name, key, indexUni));
+            .with(s -> replace(name, key, indexUni, value), t -> actualRemove(name, key, indexUni));
       return indexUni;
    }
 
@@ -127,5 +96,40 @@ public class Caches {
          return Uni.createFrom().item(Boolean.TRUE);
       }
       return Uni.createFrom().item(Boolean.FALSE);
+   }
+
+   private LoadingCache<String, Uni<String>> createLoadingCache(String rule) {
+      if (!configuration.rules().containsKey(rule)) {
+         throw new IllegalArgumentException("Rule " + rule + " not configured");
+      }
+
+      LoadingCache<String, Uni<String>> cache = Caffeine.newBuilder()
+            // TODO: populate this with config
+            .maximumWeight(1_000_000)
+            .<String, Uni<String>>weigher((k, v) -> {
+               // TODO: need to revisit this later
+               int size = k.length() * 2 + 1;
+               if (v instanceof UniItem<String> uniItem) {
+                  var actualValue = uniItem.getItem();
+                  size += actualValue == null ? 0 : actualValue.length() * 2 + 1;
+                  if (size < 0) {
+                     size = Integer.MAX_VALUE;
+                  }
+               }
+               return size;
+            })
+            .build(key -> {
+               Uni<String> dbUni = databaseHandler.select(rule, key)
+                     // Make sure to use memoize, so that if multiple people subscribe to this it won't cause
+                     // multiple DB lookups
+                     .memoize().indefinitely();
+               // This will replace the pending Uni from the DB with a UniItem so we can properly size the entry
+               // Note due to how lazy subscribe works the entry won't be present in the map  yet
+               dbUni.subscribe()
+                     .with(result -> replace(rule, key, dbUni, result), t -> actualRemove(rule, key, dbUni));
+               return dbUni;
+            });
+      metrics.registerRulesMetrics(rule, cache);
+      return cache;
    }
 }
