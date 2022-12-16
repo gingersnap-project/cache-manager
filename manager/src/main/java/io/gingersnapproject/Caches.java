@@ -2,9 +2,7 @@ package io.gingersnapproject;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -14,7 +12,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.gingersnapproject.configuration.Configuration;
@@ -26,12 +23,6 @@ import io.gingersnapproject.search.IndexingHandler;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.groups.UniJoin;
 import org.infinispan.util.KeyValuePair;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Stream;
 
 @Singleton
 public class Caches {
@@ -79,16 +70,6 @@ public class Caches {
       return indexUni;
    }
 
-   public Uni<List<String>> putAll(String name, Map<String, String> values) {
-      // TODO use bulk operation to index
-      UniJoin.Builder<String> builder = Uni.join().builder();
-      for (Map.Entry<String, String> entry : values.entrySet()) {
-         builder = builder.add(put(name, entry.getKey(), entry.getValue()));
-      }
-
-      return builder.joinAll().andFailFast();
-   }
-
    public Uni<String> get(String name, String key) {
       CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess();
       try {
@@ -109,25 +90,18 @@ public class Caches {
    }
 
    public Uni<Map<String, String>> getAll(String name, Collection<String> keys)  {
-      CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess();
-      try {
-         Map<String, Uni<String>> res = getOrCreateMap(name).getAll(keys);
+      Map<String, Uni<String>> res = getOrCreateMap(name).getAll(keys);
 
-         if (res.isEmpty()) return EMPTY_MAP_UNI;
+      if (res.isEmpty()) return EMPTY_MAP_UNI;
 
-         UniJoin.Builder<KeyValuePair<String, String>> builder = Uni.join().builder();
-         for (Map.Entry<String, Uni<String>> entry : res.entrySet()) {
-            String key = entry.getKey();
-            cacheAccessRecord.localHit(entry.getValue() instanceof UniItem<String>);
-            builder = builder.add(entry.getValue().map(v -> KeyValuePair.of(key, v)));
-         }
-         return builder.joinAll().andFailFast()
-                 .map(values -> values.stream()
-                         .collect(Collectors.toMap(KeyValuePair::getKey, KeyValuePair::getValue)));
-      } catch (RuntimeException e) {
-         cacheAccessRecord.recordThrowable(e);
-         throw e;
+      UniJoin.Builder<KeyValuePair<String, String>> builder = Uni.join().builder();
+      for (Map.Entry<String, Uni<String>> entry : res.entrySet()) {
+         String key = entry.getKey();
+         builder = builder.add(get(name, key).map(v -> KeyValuePair.of(key, v)));
       }
+      return builder.joinAll().andFailFast()
+            .map(values -> values.stream()
+                  .collect(Collectors.toMap(KeyValuePair::getKey, KeyValuePair::getValue)));
    }
 
    public Uni<Boolean> remove(String name, String key) {

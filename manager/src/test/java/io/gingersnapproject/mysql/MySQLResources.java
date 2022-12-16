@@ -40,18 +40,18 @@ public class MySQLResources implements QuarkusTestResourceLifecycleManager {
             String.format("gingersnap.rule.%s.connector.schema", RULE), "debezium",
             String.format("gingersnap.rule.%s.connector.table", RULE), "customer"));
 
-   for (int i = 1; i < 4; ++i) {
-            properties.putAll(Map.of(
-                  "gingersnap.rule.developers-" + i + ".key-type", "PLAIN",
-                  "gingersnap.rule.developers-" + i + ".plain-separator", ":",
-                  "gingersnap.rule.developers-" + i + ".select-statement", "select fullname, email from customer where id = ?",
-                  "gingersnap.rule.developers-" + i + ".query-enabled", "true",
-                  "gingersnap.rule.developers-" + i + ".connector.schema", "debezium",
-                  "gingersnap.rule.developers-" + i + ".connector.table", "developers-" + i));
-        }
+      for (int i = 1; i < 5; ++i) {
+          properties.putAll(Map.of(
+            "gingersnap.rule.developers-" + i + ".key-type", "PLAIN",
+            "gingersnap.rule.developers-" + i + ".plain-separator", ":",
+            "gingersnap.rule.developers-" + i + ".select-statement", "select fullname, email from customer where id = ?",
+            "gingersnap.rule.developers-" + i + ".query-enabled", "true",
+            "gingersnap.rule.developers-" + i + ".connector.schema", "debezium",
+            "gingersnap.rule.developers-" + i + ".connector.table", "developers-" + i));
+      }
 
-        return properties;
-    }
+      return properties;
+   }
 
    @Override
    public void stop() {

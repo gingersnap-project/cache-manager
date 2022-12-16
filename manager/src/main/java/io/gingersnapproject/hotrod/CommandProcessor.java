@@ -164,13 +164,10 @@ public class CommandProcessor {
             writeSuccess(header);
             return;
          }
-         Map<String, String> transformed = new HashMap<>();
          for (Map.Entry<byte[], byte[]> entry : entryMap.entrySet()) {
-            transformed.put(toString(entry.getKey()), toString(entry.getValue()));
+            maps.put(cacheName, toString(entry.getKey()), toString(entry.getValue()));
          }
-
-         maps.putAll(cacheName, transformed).subscribe()
-                 .with(ignore -> writeSuccess(header), t -> writeException(header, t));
+         writeSuccess(header);
       } catch (Throwable t) {
          writeException(header, t);
       }
@@ -179,8 +176,27 @@ public class CommandProcessor {
    public void getAll(GingersnapHeader header, Set<byte[]> keys) {
       try {
          String cacheName = header.getCacheName();
+         if (cacheName.startsWith(INTERNAL_MAP_PREFIX)) {
+            if (!OFFSET_MAP_NAME.equals(cacheName)) {
+               writeException(header, new IllegalArgumentException("Cache of name " + cacheName + " not supported in Gingersnap."));
+               return;
+            }
+
+            Map<byte[], byte[]> response = new HashMap<>();
+            for (byte[] key : keys) {
+               WrappedByteArray value = debeziumOffsetMap.get(new WrappedByteArray(key));
+               if (value != null) {
+                  response.put(key, value.getBytes());
+               }
+            }
+            writeResponse(header.encoder().getAllResponse(header, null, channel, response));
+            return;
+         }
+
          Set<String> keysTransformed = new HashSet<>();
-         for (byte[] key : keys) keysTransformed.add(toString(key));
+         for (byte[] key : keys) {
+            keysTransformed.add(toString(key));
+         }
 
          maps.getAll(cacheName, keysTransformed).subscribe()
                  .with(s -> {

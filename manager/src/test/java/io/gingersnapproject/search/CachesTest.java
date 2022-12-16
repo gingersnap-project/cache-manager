@@ -8,6 +8,8 @@ import org.infinispan.commons.dataconversion.internal.Json;
 import org.junit.jupiter.api.Test;
 
 import io.gingersnapproject.Caches;
+import io.gingersnapproject.search.opensearch.OpenSearchBackend;
+
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -19,7 +21,7 @@ public class CachesTest {
    Caches caches;
 
    @Inject
-   SearchBackend searchBackend;
+   OpenSearchBackend searchBackend;
 
    @Test
    public void testPutAndRemove() throws InterruptedException {
