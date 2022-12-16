@@ -17,7 +17,7 @@ import io.gingersnapproject.database.DatabaseHandler;
 import io.gingersnapproject.metrics.CacheAccessRecord;
 import io.gingersnapproject.metrics.CacheManagerMetrics;
 import io.gingersnapproject.mutiny.UniItem;
-import io.gingersnapproject.search.QueryHandler;
+import io.gingersnapproject.search.IndexingHandler;
 import io.smallrye.mutiny.Uni;
 
 @Singleton
@@ -33,7 +33,7 @@ public class Caches {
    Configuration configuration;
 
    @Inject
-   QueryHandler queryHandler;
+   IndexingHandler indexingHandler;
 
    public ConcurrentMap<String, Cache<String, List<byte[]>>> getMultiMaps() {
       return multiMaps;
@@ -88,7 +88,7 @@ public class Caches {
    }
 
    public Uni<String> put(String name, String key, String value) {
-      Uni<String> indexUni = queryHandler.put(name, key, value)
+      Uni<String> indexUni = indexingHandler.put(name, key, value)
                   .map(___ -> value)
             // Make sure subsequent subscriptions don't update index again
                   .memoize().indefinitely();
@@ -120,7 +120,7 @@ public class Caches {
    }
 
    public Uni<Boolean> remove(String name, String key) {
-      Uni<String> indexUni = queryHandler.remove(name, key)
+      Uni<String> indexUni = indexingHandler.remove(name, key)
             .<String>map(___ -> null)
             // Make sure subsequent subscriptions don't update index again
             .memoize().indefinitely();
