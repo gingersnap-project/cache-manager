@@ -1,6 +1,5 @@
 package io.gingersnapproject;
 
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
@@ -25,24 +24,17 @@ public class Caches {
    @Inject
    CacheManagerMetrics metrics;
    private final ConcurrentMap<String, LoadingCache<String, Uni<String>>> maps = new ConcurrentHashMap<>();
-   private final ConcurrentMap<String, Cache<String, List<byte[]>>> multiMaps = new ConcurrentHashMap<>();
 
    @Inject
    DatabaseHandler databaseHandler;
    @Inject
    Configuration configuration;
-
    @Inject
    SearchBackend searchBackend;
 
-   public ConcurrentMap<String, Cache<String, List<byte[]>>> getMultiMaps() {
-      return multiMaps;
-   }
-
    private LoadingCache<String, Uni<String>> getOrCreateMap(String name) {
       if (!configuration.rules().containsKey(name)) {
-         // If no rule defined, don't apply database loading (internal caches)
-         return maps.computeIfAbsent(name,  ___ ->  Caffeine.newBuilder().build(k -> null));
+         throw new IllegalArgumentException("Rule " + name + " not configured");
       }
       return maps.computeIfAbsent(name, ___ -> Caffeine.newBuilder()
             // TODO: populate this with config
