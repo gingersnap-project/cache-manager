@@ -8,10 +8,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -19,10 +22,8 @@ import java.util.concurrent.TimeUnit;
  * A {@link CacheManagerMetrics} implementation that uses {@link MeterRegistry} to store metrics information.
  */
 public class CacheManagerMicrometerMetrics implements CacheManagerMetrics {
-
-   private final EnumMap<TimerMetric, Timer> timers = new EnumMap<>(TimerMetric.class);
    private final MeterRegistry registry;
-   private final Map<String, Collection<Meter.Id>> perRulesMetrics = new ConcurrentHashMap<>();
+   private final Map<String, RuleMetrics> perRulesMetrics = new ConcurrentHashMap<>();
 
    private static Timer createTimer(MeterRegistry registry, String mame, String description) {
       return Timer.builder(mame)
@@ -46,38 +47,37 @@ public class CacheManagerMicrometerMetrics implements CacheManagerMetrics {
 
    public CacheManagerMicrometerMetrics(MeterRegistry registry) {
       this.registry = registry;
-      for (TimerMetric metric : TimerMetric.values()) {
-         timers.put(metric, createTimer(registry, metric.metricName(), metric.description()));
-      }
    }
 
    @Override
-   public <T> CacheAccessRecord<T> recordCacheAccess() {
-      return new CacheAccessRecordImpl<>(System.nanoTime());
+   public <T> CacheAccessRecord<T> recordCacheAccess(String rule) {
+      return new CacheAccessRecordImpl<>(rule, System.nanoTime());
    }
 
    @Override
    public void registerRulesMetrics(String rule, LoadingCache<?, ?> cache) {
-      var metrics = Arrays.stream(PerRuleGaugeMetric.values())
-            .map(gauge -> gauge.registerRule(registry, rule, cache))
-            .toList();
-      perRulesMetrics.put(rule, metrics);
+      perRulesMetrics.computeIfAbsent(rule, k -> {
+         RuleMetrics rm = new RuleMetrics(k);
+         rm.register(cache);
+         return rm;
+      });
    }
 
    @Override
    public void unregisterRulesMetrics(String rule) {
       var metrics = perRulesMetrics.remove(rule);
       if (metrics != null) {
-         metrics.forEach(registry::remove);
+         metrics.unregister();
       }
    }
 
    private class CacheAccessRecordImpl<T> implements CacheAccessRecord<T> {
-
+      private final String rule;
       private final long startTimeNanos;
       private volatile boolean localHit = true;
 
-      private CacheAccessRecordImpl(long startTimeNanos) {
+      private CacheAccessRecordImpl(String rule, long startTimeNanos) {
+         this.rule = rule;
          this.startTimeNanos = startTimeNanos;
       }
 
@@ -99,7 +99,34 @@ public class CacheManagerMicrometerMetrics implements CacheManagerMetrics {
       }
 
       private void recordLatency(TimerMetric metric) {
-         timers.get(metric).record(System.nanoTime() - startTimeNanos, TimeUnit.NANOSECONDS);
+         Objects.requireNonNull(perRulesMetrics.get(rule), String.format("Rule '%s' not registered", rule))
+               .timers.get(metric).record(System.nanoTime() - startTimeNanos, TimeUnit.NANOSECONDS);
+      }
+   }
+
+   private class RuleMetrics {
+      private final String rule;
+      private final EnumMap<TimerMetric, Timer> timers = new EnumMap<>(TimerMetric.class);
+      private final List<Meter.Id> meters = new ArrayList<>();
+
+      private RuleMetrics(String rule) {
+         this.rule = rule;
+      }
+
+      public void register(LoadingCache<?, ?> cache) {
+         var metrics = Arrays.stream(PerRuleGaugeMetric.values())
+               .map(gauge -> gauge.registerRule(registry, rule, cache))
+               .toList();
+
+         meters.addAll(metrics);
+         for (TimerMetric metric : TimerMetric.values()) {
+            timers.put(metric, createTimer(registry, metric.metricName(rule), metric.description()));
+         }
+      }
+
+      public void unregister() {
+         meters.forEach(registry::remove);
+         timers.values().forEach(t -> registry.remove(t.getId()));
       }
    }
 }

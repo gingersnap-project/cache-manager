@@ -59,9 +59,8 @@ public class MetricsResourceTest {
       assertTimerMetricsValue(expectedCount);
       assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
 
-      // cache error
+      // rule is never created, metrics remains the same
       given().when().get(GET_PATH, "non-existing-rule", "100000").then().statusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-      expectedCount.put(TimerMetric.CACHE_ERROR, "1.0");
       assertTimerMetricsValue(expectedCount);
       assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
    }
@@ -86,7 +85,7 @@ public class MetricsResourceTest {
    }
 
    private static Matcher<String> convertToContainsString(Map.Entry<TimerMetric, String> entry) {
-      return containsString(format(TIMER_METRIC_FORMAT, entry.getKey().metricName(), entry.getValue()));
+      return containsString(format(TIMER_METRIC_FORMAT, entry.getKey().metricName(MySQLResources.RULE).replace('-', '_'), entry.getValue()));
    }
 
    private static Matcher<String> convertToContainsString(Map.Entry<PerRuleGaugeMetric, String> entry, String rule) {
