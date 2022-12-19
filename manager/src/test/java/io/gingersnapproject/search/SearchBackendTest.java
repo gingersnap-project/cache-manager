@@ -3,6 +3,8 @@ package io.gingersnapproject.search;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
+
 import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
@@ -14,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import io.gingersnapproject.search.opensearch.OpenSearchBackend;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
 
 @QuarkusTest
 @QuarkusTestResource(SearchTestResource.class)
@@ -35,21 +36,19 @@ public class SearchBackendTest {
       LOG.info(response);
       assertThat(response).contains("\"index\":\"" + INDEX_NAME + "\"");
 
-      Uni<String>[] unis = new Uni[100];
+      HashMap<String, String> documents = new HashMap<>();
       for (int i = 0; i < 100; i++) {
          String id = StringUtils.leftPad(i + "", 3, "0");
-         Json json = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id);
-         unis[i] = searchBackend.put(INDEX_NAME, id + "", json.toString());
+         String jsonString = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id).toString();
+         documents.put(id, jsonString);
       }
+      response = searchBackend.putAll(INDEX_NAME, documents).await().indefinitely();
 
-      response = unis[0].await().indefinitely();
       LOG.info(response);
 
       Condition<String> created = new Condition<>(r -> r.contains("\"result\":\"created\""), "created");
       Condition<String> updated = new Condition<>(r -> r.contains("\"result\":\"updated\""), "updated");
       assertThat(response).is(anyOf(created, updated));
-
-      Uni.combine().all().unis(unis).combinedWith(unused -> null).await().indefinitely();
 
       // TODO find a better way to wait for the puts
       Thread.sleep(1000);
