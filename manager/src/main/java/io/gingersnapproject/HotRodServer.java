@@ -3,6 +3,7 @@ package io.gingersnapproject;
 import java.net.InetSocketAddress;
 
 import javax.enterprise.event.Observes;
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import org.infinispan.commons.logging.LogFactory;
@@ -23,9 +24,12 @@ import io.quarkus.runtime.StartupEvent;
 public class HotRodServer {
    static private final Log log = LogFactory.getLog(HotRodServer.class, Log.class);
 
+   @Inject
+   Configuration config;
+
    NettyTransport nettyTransport;
 
-   void start(@Observes StartupEvent ignore, Configuration config, Caches maps) {
+   void start(@Observes StartupEvent ignore, Caches maps) {
       GingersnapServerConfiguration configuration = new GingersnapServerConfigurationBuilder(config.hotrod().port())
             .host(config.hotrod().host())
             .build();
