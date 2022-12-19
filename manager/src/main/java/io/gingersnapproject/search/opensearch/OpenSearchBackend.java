@@ -68,6 +68,8 @@ public class OpenSearchBackend implements SearchBackend {
             .transformToUni(___ -> {
                Request request = new Request("POST", "/_bulk");
 
+               request.addParameter("refresh", "wait_for");
+
                StringBuilder body = new StringBuilder();
                for (Map.Entry<String, String> entry : documents.entrySet()) {
                   body.append(Json.object("index", Json.object("_index", indexName, "_id", entry.getKey())));
