@@ -50,9 +50,6 @@ public class SearchBackendTest {
       Condition<String> updated = new Condition<>(r -> r.contains("\"result\":\"updated\""), "updated");
       assertThat(response).is(anyOf(created, updated));
 
-      // TODO find a better way to wait for the puts
-      Thread.sleep(1000);
-
       // search
       SearchResult queryResponse = searchBackend.query("select * from " + INDEX_NAME + " order by name")
             .await().indefinitely();
