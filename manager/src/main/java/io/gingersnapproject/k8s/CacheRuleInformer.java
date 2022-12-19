@@ -10,9 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.Watch;
-import io.fabric8.kubernetes.client.Watcher;
-import io.fabric8.kubernetes.client.WatcherException;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.gingersnapproject.configuration.EagerRuleManagement;
@@ -31,13 +28,11 @@ public class CacheRuleInformer {
    @Inject
    KubernetesConfiguration configuration;
    @Inject
-   private SharedIndexInformer<ConfigMap> lazyInformer;
-   @Inject
-   private SharedIndexInformer<ConfigMap> eagerInformer;
-   @Inject
    LazyRuleManagement lrm;
    @Inject
    EagerRuleManagement erm;
+   private SharedIndexInformer<ConfigMap> lazyInformer;
+   private SharedIndexInformer<ConfigMap> eagerInformer;
 
    void startWatching(@Observes StartupEvent ignore) {
       if (client.isUnsatisfied() || configuration.lazyConfigMapName().isEmpty()) {

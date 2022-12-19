@@ -1,0 +1,3 @@
+[submodule "manager/gingersnap-api"]
+	path = manager/gingersnap-api
+	url = https://github.com/gingersnap-project/api.git
