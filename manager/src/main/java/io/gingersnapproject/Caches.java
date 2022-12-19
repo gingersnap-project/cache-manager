@@ -71,7 +71,7 @@ public class Caches {
    }
 
    public Uni<String> get(String name, String key) {
-      CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess();
+      CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess(name);
       try {
          Uni<String> uni = getOrCreateMap(name).get(key);
          cacheAccessRecord.localHit(uni instanceof UniItem<String>);

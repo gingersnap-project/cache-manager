@@ -15,7 +15,7 @@ public interface CacheManagerMetrics {
     * @param <T> The value's type.
     * @return A {@link CacheAccessRecord} instance.
     */
-   <T> CacheAccessRecord<T> recordCacheAccess();
+   <T> CacheAccessRecord<T> recordCacheAccess(String rule);
 
    /**
     * Register metrics associated with the {@code rule} stored in {@code cache}.
