@@ -70,6 +70,18 @@ public class Caches {
       return indexUni;
    }
 
+   public Uni<String> putAll(String name, Map<String, String> values) {
+      Uni<String> bulkIndexingOperation = indexingHandler.putAll(name, values)
+            .memoize().indefinitely();
+
+      for (Map.Entry<String, String> entry : values.entrySet()) {
+         getOrCreateMap(name)
+               .put(entry.getKey(), UniItem.fromItem(entry.getValue()));
+      }
+
+      return bulkIndexingOperation;
+   }
+
    public Uni<String> get(String name, String key) {
       CacheAccessRecord<String> cacheAccessRecord = metrics.recordCacheAccess(name);
       try {

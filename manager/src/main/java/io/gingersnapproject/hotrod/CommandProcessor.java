@@ -164,10 +164,13 @@ public class CommandProcessor {
             writeSuccess(header);
             return;
          }
+         Map<String, String> transformed = new HashMap<>();
          for (Map.Entry<byte[], byte[]> entry : entryMap.entrySet()) {
-            maps.put(cacheName, toString(entry.getKey()), toString(entry.getValue()));
+            transformed.put(toString(entry.getKey()), toString(entry.getValue()));
          }
-         writeSuccess(header);
+
+         maps.putAll(cacheName, transformed).subscribe()
+               .with(ignore -> writeSuccess(header), t -> writeException(header, t));
       } catch (Throwable t) {
          writeException(header, t);
       }
