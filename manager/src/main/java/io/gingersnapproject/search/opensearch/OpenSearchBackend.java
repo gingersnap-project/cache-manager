@@ -74,7 +74,7 @@ public class OpenSearchBackend implements SearchBackend {
                for (Map.Entry<String, String> entry : documents.entrySet()) {
                   body.append(Json.object("index", Json.object("_index", indexName, "_id", entry.getKey())));
                   body.append("\n"); // using \n and not the system line separator, since the value will be used by the server VM
-                  body.append(entry.getValue());
+                  body.append(entry.getValue().replace("\n", "")); // make the single entity single line
                   body.append("\n"); // using \n and not the system line separator, since the value will be used by the server VM
                }
                request.setJsonEntity(body.toString());
