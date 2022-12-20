@@ -39,7 +39,8 @@ public class SearchBackendTest {
       HashMap<String, String> documents = new HashMap<>();
       for (int i = 0; i < 100; i++) {
          String id = StringUtils.leftPad(i + "", 3, "0");
-         String jsonString = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id).toString();
+         String jsonString = Json.object("surname", "surname " + id, "name", "name " + id, "nick", "nick" + id)
+               .toPrettyString(); // using here a multiple lines JSON format
          documents.put(id, jsonString);
       }
       response = searchBackend.putAll(INDEX_NAME, documents).await().indefinitely();
