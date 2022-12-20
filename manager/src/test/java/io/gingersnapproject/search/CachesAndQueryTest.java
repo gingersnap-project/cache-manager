@@ -2,11 +2,13 @@ package io.gingersnapproject.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.apache.commons.lang3.StringUtils;
 import org.infinispan.commons.dataconversion.internal.Json;
 import org.junit.jupiter.api.Test;
 
@@ -56,5 +58,21 @@ public class CachesAndQueryTest {
 
       assertThat(results.size()).isEqualTo(1L);
       assertThat(results).containsExactly(originalMike.toString());
+
+      HashMap<String, String> values = new HashMap<>();
+      for (int i = 0; i < 100; i++) {
+         String key = StringUtils.leftPad(i + "", 3, "0");
+         String surname = StringUtils.leftPad(i / 10 + "", 2, "0");
+         String name = StringUtils.leftPad(i % 10 + "", 2, "0");
+
+         values.put(key, Json.object("surname", surname, "name", name, "nick", key).toString());
+      }
+
+      caches.putAll(INDEX_NAME, values).await().indefinitely();
+
+      results = queryHandler.query("select * from " + INDEX_NAME + " where surname = '07' order by name")
+            .subscribe().asStream().collect(Collectors.toList());
+
+      assertThat(results.get(3)).isEqualTo("{\"surname\":\"07\",\"name\":\"03\",\"nick\":\"073\"}");
    }
 }
