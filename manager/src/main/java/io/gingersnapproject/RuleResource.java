@@ -10,6 +10,7 @@ import javax.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import io.gingersnapproject.search.QueryHandler;
+import io.gingersnapproject.search.QueryResult;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
@@ -43,7 +44,7 @@ public class RuleResource {
    @GET
    @Operation(summary = "Queries from any of the rules that are indexed")
    @Produces(MediaType.APPLICATION_JSON)
-   public Multi<String> query(@QueryParam("query") String query) {
+   public Uni<QueryResult> query(@QueryParam("query") String query) {
       return queryHandler.query(query);
    }
 }

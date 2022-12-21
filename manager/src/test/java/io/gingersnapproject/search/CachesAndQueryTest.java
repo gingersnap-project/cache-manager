@@ -41,11 +41,14 @@ public class CachesAndQueryTest {
 
       Thread.sleep(2000);
 
-      List<String> results = queryHandler.query("select * from " + INDEX_NAME + " order by name")
-            .subscribe().asStream().collect(Collectors.toList());
+      QueryResult result = queryHandler.query("select * from " + INDEX_NAME + " order by name")
+            .await().indefinitely();
+      assertThat(result.hitCount()).isEqualTo(2L);
+      assertThat(result.hitCountExact()).isTrue();
+      assertThat(result.hitsExacts()).isTrue();
 
-      assertThat(results.size()).isEqualTo(2L);
-      assertThat(results).containsExactly(originalJohn.toString(), originalMike.toString());
+      List<String> hits = result.hits().subscribe().asStream().collect(Collectors.toList());
+      assertThat(hits).containsExactly(originalJohn.toString(), originalMike.toString());
 
       caches.remove(INDEX_NAME, "john").await().indefinitely();
 
@@ -53,11 +56,14 @@ public class CachesAndQueryTest {
 
       Thread.sleep(2000);
 
-      results = queryHandler.query("select * from " + INDEX_NAME + " order by name")
-            .subscribe().asStream().collect(Collectors.toList());
+      result = queryHandler.query("select * from " + INDEX_NAME + " order by name")
+            .await().indefinitely();
+      assertThat(result.hitCount()).isEqualTo(1L);
+      assertThat(result.hitCountExact()).isTrue();
+      assertThat(result.hitsExacts()).isTrue();
 
-      assertThat(results.size()).isEqualTo(1L);
-      assertThat(results).containsExactly(originalMike.toString());
+      hits = result.hits().subscribe().asStream().collect(Collectors.toList());
+      assertThat(hits).containsExactly(originalMike.toString());
 
       HashMap<String, String> values = new HashMap<>();
       for (int i = 0; i < 100; i++) {
@@ -70,9 +76,13 @@ public class CachesAndQueryTest {
 
       caches.putAll(INDEX_NAME, values).await().indefinitely();
 
-      results = queryHandler.query("select * from " + INDEX_NAME + " where surname = '07' order by name")
-            .subscribe().asStream().collect(Collectors.toList());
+      result = queryHandler.query("select * from " + INDEX_NAME + " where surname = '07' order by name")
+            .await().indefinitely();
+      assertThat(result.hitCount()).isEqualTo(10L);
+      assertThat(result.hitCountExact()).isTrue();
+      assertThat(result.hitsExacts()).isTrue();
 
-      assertThat(results.get(3)).isEqualTo("{\"surname\":\"07\",\"name\":\"03\",\"nick\":\"073\"}");
+      hits = result.hits().subscribe().asStream().collect(Collectors.toList());
+      assertThat(hits.get(3)).isEqualTo("{\"surname\":\"07\",\"name\":\"03\",\"nick\":\"073\"}");
    }
 }
