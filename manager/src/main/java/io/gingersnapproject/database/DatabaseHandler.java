@@ -1,8 +1,11 @@
 package io.gingersnapproject.database;
 
+import java.sql.JDBCType;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import org.apache.calcite.util.Pair;
 import org.infinispan.commons.dataconversion.internal.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +19,7 @@ import io.vertx.sqlclient.PreparedQuery;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowIterator;
 import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.desc.ColumnDescriptor;
 
 @Singleton
 public class DatabaseHandler {
@@ -26,16 +30,35 @@ public class DatabaseHandler {
    @Inject
    Pool pool;
 
+   public Uni<Pair<String, JDBCType>[]> metadata(String rule) {
+      Rule ruleConfig = configuration.rules().get(rule);
+      PreparedQuery<RowSet<Row>> preparedQuery = pool.preparedQuery(ruleConfig.selectStatement());
+      var quarkusPreparedQuery = io.vertx.mutiny.sqlclient.PreparedQuery.<RowSet<Row>>newInstance(preparedQuery);
+      String[] arguments = ruleConfig.keyType().toArguments("", ruleConfig.plainSeparator());
+      return quarkusPreparedQuery
+            .execute(Tuple.from(arguments))
+            .onFailure().invoke(t -> log.error("Exception encountered!", t))
+            .map(rs -> {
+               var descriptors = rs.columnDescriptors();
+               Pair<String, JDBCType>[] metadata = new Pair[descriptors.size()];
+               var i = 0;
+               for(ColumnDescriptor descriptor : descriptors) {
+                  metadata[i++] = Pair.of(descriptor.name(), descriptor.jdbcType());
+               }
+               return metadata;
+            });
+   }
+
    public Uni<String> select(String rule, String key) {
       Rule ruleConfig = configuration.rules().get(rule);
       if (ruleConfig == null) {
          throw new IllegalArgumentException("No rule found for " + rule);
       }
 
+
       // Have to do this until bug is fixed allowing injection of reactive Pool
       PreparedQuery<RowSet<Row>> preparedQuery = pool.preparedQuery(ruleConfig.selectStatement());
       var quarkusPreparedQuery = io.vertx.mutiny.sqlclient.PreparedQuery.<RowSet<Row>>newInstance(preparedQuery);
-
       String[] arguments = ruleConfig.keyType().toArguments(key, ruleConfig.plainSeparator());
 //      return pool.preparedQuery(ruleConfig.selectStatement())
       return quarkusPreparedQuery

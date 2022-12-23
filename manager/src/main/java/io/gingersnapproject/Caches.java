@@ -2,6 +2,7 @@ package io.gingersnapproject;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -11,9 +12,12 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import org.infinispan.util.KeyValuePair;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
 import io.gingersnapproject.configuration.Configuration;
 import io.gingersnapproject.database.DatabaseHandler;
 import io.gingersnapproject.metrics.CacheAccessRecord;
@@ -22,7 +26,6 @@ import io.gingersnapproject.mutiny.UniItem;
 import io.gingersnapproject.search.IndexingHandler;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.groups.UniJoin;
-import org.infinispan.util.KeyValuePair;
 
 @Singleton
 public class Caches {
@@ -99,6 +102,13 @@ public class Caches {
       return cache.asMap()
             .keySet()
             .stream();
+   }
+
+   public Iterator<? extends Map.Entry<String, Uni<String>>> cacheIterator(String name) {
+      Cache<String, Uni<String>> cache = getOrCreateMap(name);
+      return cache.asMap()
+            .entrySet()
+            .iterator();
    }
 
    public Uni<Map<String, String>> getAll(String name, Collection<String> keys)  {
