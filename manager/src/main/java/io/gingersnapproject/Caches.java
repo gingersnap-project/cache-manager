@@ -2,7 +2,9 @@ package io.gingersnapproject;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -12,6 +14,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.gingersnapproject.configuration.Configuration;
@@ -154,17 +157,30 @@ public class Caches {
                }
                return size;
             })
-              // TODO: override getAll
-            .build(key -> {
-               Uni<String> dbUni = databaseHandler.select(rule, key)
-                     // Make sure to use memoize, so that if multiple people subscribe to this it won't cause
-                     // multiple DB lookups
-                     .memoize().indefinitely();
-               // This will replace the pending Uni from the DB with a UniItem so we can properly size the entry
-               // Note due to how lazy subscribe works the entry won't be present in the map  yet
-               dbUni.subscribe()
-                     .with(result -> replace(rule, key, dbUni, result), t -> actualRemove(rule, key, dbUni));
-               return dbUni;
+            .build(new CacheLoader<>() {
+               @Override public Uni<String> load(String key) {
+                  Uni<String> dbUni = databaseHandler.select(rule, key)
+                        // Make sure to use memoize, so that if multiple people subscribe to this it won't cause
+                        // multiple DB lookups
+                        .memoize().indefinitely();
+                  // This will replace the pending Uni from the DB with a UniItem so we can properly size the entry
+                  // Note due to how lazy subscribe works the entry won't be present in the map  yet
+                  dbUni.subscribe()
+                        .with(result -> replace(rule, key, dbUni, result), t -> actualRemove(rule, key, dbUni));
+                  return dbUni;
+               }
+
+               @Override
+               public Map<? extends String, ? extends Uni<String>> loadAll(Set<? extends String> keys) {
+                  if (keys.isEmpty()) return Collections.emptyMap();
+
+                  // TODO: single select?
+                  Map<String, Uni<String>> response = new HashMap<>();
+                  for (String key : keys) {
+                     response.put(key, load(key));
+                  }
+                  return response;
+               }
             });
       metrics.registerRulesMetrics(rule, cache);
       return cache;
