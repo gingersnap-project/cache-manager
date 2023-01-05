@@ -30,10 +30,9 @@ public class MySQLResources implements QuarkusTestResourceLifecycleManager {
       db.start();
 
       Map<String, String> properties = new HashMap<>( Map.of(
-            "quarkus.datasource.db-kind", "MYSQL",
-            "quarkus.datasource.username", db.getUsername(),
-            "quarkus.datasource.password", db.getPassword(),
-            "quarkus.datasource.reactive.url", String.format("mysql://%s:%d/debezium", db.getHost(), db.getMappedPort(MySQLContainer.MYSQL_PORT)),
+            "quarkus.datasource.mysql.username", db.getUsername(),
+            "quarkus.datasource.mysql.password", db.getPassword(),
+            "quarkus.datasource.mysql.reactive.url", String.format("mysql://%s:%d/debezium", db.getHost(), db.getMappedPort(MySQLContainer.MYSQL_PORT)),
             String.format("gingersnap.rule.%s.key-type", RULE), "PLAIN",
             String.format("gingersnap.rule.%s.plain-separator", RULE), ":",
             String.format("gingersnap.rule.%s.select-statement", RULE), "select fullname, email from customer where id = ?",
