@@ -1,8 +1,11 @@
 package io.gingersnapproject.metrics;
 
 import io.gingersnapproject.metrics.micrometer.PerRuleGaugeMetric;
-import io.gingersnapproject.metrics.micrometer.TimerMetric;
+import io.gingersnapproject.metrics.micrometer.PerRuleTimerMetric;
 import io.gingersnapproject.mysql.MySQLResources;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.config.NamingConvention;
+import io.micrometer.prometheus.PrometheusNamingConvention;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.apache.http.HttpStatus;
@@ -14,8 +17,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.COMPONENT_KEY;
+import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.COMPONENT_NAME;
+import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.RULE_KEY;
+import static io.gingersnapproject.mysql.MySQLResources.RULE_NAME;
 import static io.restassured.RestAssured.given;
-import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.containsString;
 
 @QuarkusTest
@@ -23,55 +29,55 @@ import static org.hamcrest.CoreMatchers.containsString;
 public class MetricsResourceTest {
 
    private static final String GET_PATH = "/rules/{rule}/{key}";
-   private static final String TIMER_METRIC_FORMAT = "%s_seconds_count{gingersnap=\"cache_manager\",} %s";
-   private static final String GAUGE_METRIC_FORMAT = "%s{gingersnap=\"cache_manager\",} %s";
+   // prometheus naming for testing!
+   private static final NamingConvention NAMING_CONVENTION = new PrometheusNamingConvention();
 
    @Test
    public void testMetricsEndpoint() {
-      EnumMap<TimerMetric, String> expectedCount = new EnumMap<>(TimerMetric.class);
-      Arrays.stream(TimerMetric.values()).forEach(metric -> expectedCount.put(metric, "0.0"));
+      EnumMap<PerRuleTimerMetric, String> expectedCount = new EnumMap<>(PerRuleTimerMetric.class);
+      Arrays.stream(PerRuleTimerMetric.values()).forEach(metric -> expectedCount.put(metric, "0.0"));
       EnumMap<PerRuleGaugeMetric, String> expectedGauge = new EnumMap<>(PerRuleGaugeMetric.class);
       Arrays.stream(PerRuleGaugeMetric.values()).forEach(metric -> expectedGauge.put(metric, "0.0"));
 
       // cache remote hit!
-      given().when().get(GET_PATH, MySQLResources.RULE, "1").then().body(containsString("Jon Doe"));
-      expectedCount.put(TimerMetric.CACHE_REMOTE_HIT, "1.0");
+      given().when().get(GET_PATH, RULE_NAME, "1").then().body(containsString("Jon Doe"));
+      expectedCount.put(PerRuleTimerMetric.CACHE_REMOTE_HIT, "1.0");
       expectedGauge.put(PerRuleGaugeMetric.CACHE_SIZE, "1.0");
       assertTimerMetricsValue(expectedCount);
-      assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
+      assertGaugeMetricsValue(expectedGauge);
 
       // cache local hit
-      given().when().get(GET_PATH, MySQLResources.RULE, "1").then().body(containsString("Jon Doe"));
-      expectedCount.put(TimerMetric.CACHE_LOCAL_HIT, "1.0");
+      given().when().get(GET_PATH, RULE_NAME, "1").then().body(containsString("Jon Doe"));
+      expectedCount.put(PerRuleTimerMetric.CACHE_LOCAL_HIT, "1.0");
       assertTimerMetricsValue(expectedCount);
-      assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
+      assertGaugeMetricsValue(expectedGauge);
 
       // cache remote miss
-      given().when().get(GET_PATH, MySQLResources.RULE, "100000").then().statusCode(HttpStatus.SC_NO_CONTENT);
-      expectedCount.put(TimerMetric.CACHE_REMOTE_MISS, "1.0");
+      given().when().get(GET_PATH, RULE_NAME, "100000").then().statusCode(HttpStatus.SC_NO_CONTENT);
+      expectedCount.put(PerRuleTimerMetric.CACHE_REMOTE_MISS, "1.0");
       expectedGauge.put(PerRuleGaugeMetric.CACHE_SIZE, "2.0");
       assertTimerMetricsValue(expectedCount);
-      assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
+      assertGaugeMetricsValue(expectedGauge);
 
       // cache local miss
-      given().when().get(GET_PATH, MySQLResources.RULE, "100000").then().statusCode(HttpStatus.SC_NO_CONTENT);
-      expectedCount.put(TimerMetric.CACHE_LOCAL_MISS, "1.0");
+      given().when().get(GET_PATH, RULE_NAME, "100000").then().statusCode(HttpStatus.SC_NO_CONTENT);
+      expectedCount.put(PerRuleTimerMetric.CACHE_LOCAL_MISS, "1.0");
       assertTimerMetricsValue(expectedCount);
-      assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
+      assertGaugeMetricsValue(expectedGauge);
 
       // rule is never created, metrics remains the same
       given().when().get(GET_PATH, "non-existing-rule", "100000").then().statusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
       assertTimerMetricsValue(expectedCount);
-      assertGaugeMetricsValue(expectedGauge, MySQLResources.RULE);
+      assertGaugeMetricsValue(expectedGauge);
    }
 
-   private void assertTimerMetricsValue(EnumMap<TimerMetric, String> expectedCount) {
-      var matcherList = expectedCount.entrySet().stream().map(MetricsResourceTest::convertToContainsString).toList();
+   private void assertTimerMetricsValue(EnumMap<PerRuleTimerMetric, String> expectedCount) {
+      var matcherList = expectedCount.entrySet().stream().map(MetricsResourceTest::convertTimerToContainsString).toList();
       assertMetricsMatchers(matcherList);
    }
 
-   private void assertGaugeMetricsValue(EnumMap<PerRuleGaugeMetric, String> expectedCount, String rule) {
-      var matcherList = expectedCount.entrySet().stream().map(entry -> convertToContainsString(entry, rule)).toList();
+   private void assertGaugeMetricsValue(EnumMap<PerRuleGaugeMetric, String> expectedCount) {
+      var matcherList = expectedCount.entrySet().stream().map(MetricsResourceTest::convertGaugeToContainsString).toList();
       assertMetricsMatchers(matcherList);
    }
 
@@ -84,11 +90,35 @@ public class MetricsResourceTest {
       }
    }
 
-   private static Matcher<String> convertToContainsString(Map.Entry<TimerMetric, String> entry) {
-      return containsString(format(TIMER_METRIC_FORMAT, entry.getKey().metricName(MySQLResources.RULE).replace('-', '_'), entry.getValue()));
+   private static Matcher<String> convertTimerToContainsString(Map.Entry<PerRuleTimerMetric, String> entry) {
+      return containsString(timerMetricName(entry.getKey(), entry.getValue()));
    }
 
-   private static Matcher<String> convertToContainsString(Map.Entry<PerRuleGaugeMetric, String> entry, String rule) {
-      return containsString(format(GAUGE_METRIC_FORMAT, entry.getKey().metricName(rule).replace('-', '_'), entry.getValue()));
+   private static Matcher<String> convertGaugeToContainsString(Map.Entry<PerRuleGaugeMetric, String> entry) {
+      return containsString(gaugeMetricName(entry.getKey(), entry.getValue()));
+   }
+
+   private static String timerMetricName(PerRuleTimerMetric metric, String value) {
+      return metricName(metric.metricName(), "_count", value, Meter.Type.TIMER);
+   }
+
+   private static String gaugeMetricName(PerRuleGaugeMetric metric, String value) {
+     return metricName(metric.metricName(), null, value, Meter.Type.GAUGE);
+   }
+
+   private static String metricName(String metricName, String suffix, String value, Meter.Type type) {
+      String name = NAMING_CONVENTION.name(metricName, type);
+      if (suffix != null) {
+         name += suffix;
+      }
+      // tags
+      name += "{%s=\"%s\",%s=\"%s\",}".formatted(
+            NAMING_CONVENTION.tagKey(COMPONENT_KEY),
+            NAMING_CONVENTION.tagValue(COMPONENT_NAME),
+            NAMING_CONVENTION.tagKey(RULE_KEY),
+            NAMING_CONVENTION.tagValue(RULE_NAME)
+      );
+      // value
+      return name + " " + value;
    }
 }

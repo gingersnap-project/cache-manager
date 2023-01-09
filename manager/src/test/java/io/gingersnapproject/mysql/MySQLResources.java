@@ -11,7 +11,7 @@ import java.util.Map;
 
 public class MySQLResources implements QuarkusTestResourceLifecycleManager {
 
-   public static final String RULE = "us-east";
+   public static final String RULE_NAME = "us-east";
    private static final String IMAGE = "mysql:8.0.31";
 
    private static final String HOST_TMP = Path.of(System.getProperty("java.io.tmpdir"), "mysql_cache_manager").toString();
@@ -34,11 +34,11 @@ public class MySQLResources implements QuarkusTestResourceLifecycleManager {
             "quarkus.datasource.username", db.getUsername(),
             "quarkus.datasource.password", db.getPassword(),
             "quarkus.datasource.reactive.url", String.format("mysql://%s:%d/debezium", db.getHost(), db.getMappedPort(MySQLContainer.MYSQL_PORT)),
-            String.format("gingersnap.rule.%s.key-type", RULE), "PLAIN",
-            String.format("gingersnap.rule.%s.plain-separator", RULE), ":",
-            String.format("gingersnap.rule.%s.select-statement", RULE), "select fullname, email from customer where id = ?",
-            String.format("gingersnap.rule.%s.connector.schema", RULE), "debezium",
-            String.format("gingersnap.rule.%s.connector.table", RULE), "customer"));
+            String.format("gingersnap.rule.%s.key-type", RULE_NAME), "PLAIN",
+            String.format("gingersnap.rule.%s.plain-separator", RULE_NAME), ":",
+            String.format("gingersnap.rule.%s.select-statement", RULE_NAME), "select fullname, email from customer where id = ?",
+            String.format("gingersnap.rule.%s.connector.schema", RULE_NAME), "debezium",
+            String.format("gingersnap.rule.%s.connector.table", RULE_NAME), "customer"));
 
       for (int i = 1; i < 5; ++i) {
           properties.putAll(Map.of(
