@@ -1,12 +1,6 @@
 package io.gingersnapproject.hotrod;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import io.gingersnapproject.mysql.MySQLResources;
-
+import io.gingersnapproject.database.DatabaseResourcesLifecyleManager;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.infinispan.client.hotrod.DataFormat;
@@ -18,8 +12,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 @QuarkusTest
-@QuarkusTestResource(value = MySQLResources.class)
+@QuarkusTestResource(value = DatabaseResourcesLifecyleManager.class)
 public class HotRodOperationsTest {
    private static final String RULE_NAME = "developers-4";
    private RemoteCacheManager cm;

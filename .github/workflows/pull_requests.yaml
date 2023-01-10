@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+env:
+  TEST_OUTPUT_DIR: ${{ github.workspace }}/manager/target/surefire-reports
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,5 +32,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build native executable
+      - name: Build and test MySQL
         run: mvn package -Pnative
+
+      - name: MySQL Test Logs
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: mysql-test-results
+          path: ${{ env.TEST_OUTPUT_DIR }}
+
+      - name: Build and test Postgres
+        run: mvn package -Pnative -Ppostgres
+
+      - name: Postgres Test Logs
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: postgres-test-results
+          path: ${{ env.TEST_OUTPUT_DIR }}

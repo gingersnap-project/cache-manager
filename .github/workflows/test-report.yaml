@@ -1,0 +1,23 @@
+name: 'Test Report'
+on:
+  workflow_run:
+    workflows: ['Test']
+    types:
+      - completed
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dorny/test-reporter@v1
+        with:
+          artifact: mysql-test-results
+          name: MySQL Tests
+          path: '**/*.xml'
+          reporter: java-junit
+
+      - uses: dorny/test-reporter@v1
+        with:
+          artifact: postgres-test-results
+          name: Postgres Tests
+          path: '**/*.xml'
+          reporter: java-junit
