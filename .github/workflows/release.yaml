@@ -50,5 +50,3 @@ jobs:
           file: manager/src/main/docker/Dockerfile.jvm
           push: true
           tags: quay.io/gingersnap/cache-manager:${{ steps.vars.outputs.LATEST_TAG }}
-          build-args: |
-            cache_manager_VERSION=${{ steps.vars.outputs.LATEST_TAG }}
