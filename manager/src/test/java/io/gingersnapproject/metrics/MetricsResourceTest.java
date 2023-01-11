@@ -1,5 +1,6 @@
 package io.gingersnapproject.metrics;
 
+import io.gingersnapproject.database.DatabaseResourcesLifecyleManager;
 import io.gingersnapproject.metrics.micrometer.PerRuleGaugeMetric;
 import io.gingersnapproject.metrics.micrometer.PerRuleTimerMetric;
 import io.gingersnapproject.mysql.MySQLResources;
@@ -20,12 +21,12 @@ import java.util.Map;
 import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.COMPONENT_KEY;
 import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.COMPONENT_NAME;
 import static io.gingersnapproject.metrics.micrometer.CacheManagerMicrometerMetrics.RULE_KEY;
-import static io.gingersnapproject.mysql.MySQLResources.RULE_NAME;
+import static io.gingersnapproject.database.DatabaseResourcesLifecyleManager.RULE_NAME;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.containsString;
 
 @QuarkusTest
-@QuarkusTestResource(MySQLResources.class)
+@QuarkusTestResource(DatabaseResourcesLifecyleManager.class)
 public class MetricsResourceTest {
 
    private static final String GET_PATH = "/rules/{rule}/{key}";

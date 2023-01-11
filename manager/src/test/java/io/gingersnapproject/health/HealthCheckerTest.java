@@ -1,15 +1,14 @@
 package io.gingersnapproject.health;
 
-import static io.restassured.RestAssured.given;
-
-import org.junit.jupiter.api.Test;
-
-import io.gingersnapproject.mysql.MySQLResources;
+import io.gingersnapproject.database.DatabaseResourcesLifecyleManager;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.Test;
+
+import static io.restassured.RestAssured.given;
 
 @QuarkusTest
-@QuarkusTestResource(MySQLResources.class)
+@QuarkusTestResource(DatabaseResourcesLifecyleManager.class)
 public class HealthCheckerTest {
    @Test
    public void testHealthEndpointDefined() {

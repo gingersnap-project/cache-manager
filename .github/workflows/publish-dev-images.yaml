@@ -20,9 +20,20 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push MySQL
         uses: docker/build-push-action@v3
         with:
           file: manager/src/main/docker/Dockerfile.native-micro-builder
           push: true
-          tags: quay.io/gingersnap/cache-manager:latest
+          tags: quay.io/gingersnap/cache-manager-mysql:latest
+          build-args: |
+            DB_VENDOR=mysql
+
+      - name: Build and push Postgres
+        uses: docker/build-push-action@v3
+        with:
+          file: manager/src/main/docker/Dockerfile.native-micro-builder
+          push: true
+          tags: quay.io/gingersnap/cache-manager-postgres:latest
+          build-args: |
+            DB_VENDOR=postgres
