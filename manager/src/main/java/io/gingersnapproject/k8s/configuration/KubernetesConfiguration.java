@@ -10,7 +10,10 @@ import io.smallrye.config.WithName;
 public interface KubernetesConfiguration {
 
    @WithName("lazy-config-map")
-   Optional<String> configMapName();
+   Optional<String> lazyConfigMapName();
+
+   @WithName("eager-config-map")
+   Optional<String> eagerConfigMapName();
 
    @WithDefault("default")
    String namespace();
